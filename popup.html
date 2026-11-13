@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="pt-PT">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>STRIDE Inventory Helper</title>
+<link rel="stylesheet" href="popup.css">
+<main>
+  <h1>STRIDE Inventory Helper</h1>
+  <a href="https://stridecsgo.net/cases" target="_blank" rel="noopener noreferrer">Abrir caixas no STRIDE ↗</a>
+  <form id="record">
+    <label class="wide">Caixa <input name="box" required maxlength="140"></label>
+    <label>Aberturas <input name="count" type="number" min="1" max="1000000" value="1" required></label>
+    <label>Custo total <input name="cost" type="number" min="0" max="1000000000000" required></label>
+    <label class="wide">Valor total dos drops <input name="value" type="number" min="0" max="1000000000000" required></label>
+    <button class="wide" type="submit" disabled>Registar abertura</button>
+  </form>
+  <section aria-labelledby="history-title">
+    <h2 id="history-title">Histórico</h2>
+    <label>Filtrar por caixa <input id="filter" type="search"></label>
+    <p id="totals"></p>
+    <button id="export" type="button" disabled>Exportar CSV</button>
+    <ul id="history"></ul>
+  </section>
+  <p id="status" role="status"></p>
+</main>
+<script src="popup.js" defer></script>
+</html>

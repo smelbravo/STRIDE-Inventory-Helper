@@ -1,0 +1,11 @@
+{
+  "manifest_version": 3,
+  "name": "STRIDE Inventory Helper",
+  "version": "0.1.0",
+  "description": "Regista aberturas de caixas do STRIDE e acompanha o saldo em moedas.",
+  "permissions": ["storage"],
+  "action": { "default_popup": "popup.html" },
+  "browser_specific_settings": {
+    "gecko": { "id": "stride-inventory-helper@smelbravo", "strict_min_version": "142.0", "data_collection_permissions": { "required": ["none"] } }
+  }
+}
