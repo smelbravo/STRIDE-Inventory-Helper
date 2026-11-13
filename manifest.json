@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "STRIDE Inventory Helper",
-  "version": "0.5.9",
+  "version": "0.5.10",
   "optional_host_permissions": ["https://stridecsgo.net/*"],
   "default_locale": "en",
   "description": "__MSG_extensionDescription__",

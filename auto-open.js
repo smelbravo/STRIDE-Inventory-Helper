@@ -54,19 +54,34 @@ function prepareCase(selectSingle, expected, diagnose = false) {
   if (!box || url !== location.origin + location.pathname) {
     return diagnose ? { failure: 'autoCaseRoute' } : null;
   }
-  const normalize = value => value.trim().replace(/\s+/g, ' ');
+  const normalize = value => value.replace(/[\u200B-\u200F\u2060\uFEFF]/g, '').trim().replace(/\s+/g, ' ');
   const buttons = [...document.querySelectorAll('button, [role="button"]')].filter(button => button.checkVisibility());
   const labels = button => [button.innerText, button.textContent, button.getAttribute('aria-label') ?? ''].map(normalize);
-  const single = buttons.find(button => labels(button).some(label => /^(?:[×✕✖x]\s*)?1$/i.test(label)));
-  if (selectSingle && single) single.click();
   const price = /^OPEN\s*[^\p{L}\d]*(\d+(?:[, ]\d{3})*)$/iu;
   const open = buttons.find(button => labels(button).some(label => price.test(label)));
-  const failure = !single ? 'autoQuantityControl'
-    : !open ? 'autoOpenControl' : open.matches(':disabled, [aria-disabled="true"]') ? 'autoOpenDisabled' : null;
+  const failure = !open ? 'autoOpenControl'
+    : open.matches(':disabled, [aria-disabled="true"]') ? 'autoOpenDisabled' : null;
   if (failure) return diagnose ? { failure } : null;
   const cost = Number(labels(open).find(label => price.test(label)).match(price)[1].replace(/[, ]/g, ''));
   const unitPrices = [...normalize(document.body.innerText).matchAll(/(?<!\d)(\d+(?:[, ]\d{3})*)\s*per case\b/gi)]
     .map(match => Number(match[1].replace(/[, ]/g, '')));
+  if (selectSingle && !unitPrices.includes(cost)) {
+    const quantityPattern = /^(?:[×✕✖x]\s*)?([1235])$/i;
+    for (let row = open.parentElement; row && row !== document.body; row = row.parentElement) {
+      const quantities = new Map();
+      for (const element of row.querySelectorAll('button, [role], [tabindex], span, div, label')) {
+        const match = labels(element).map(label => label.match(quantityPattern)).find(Boolean);
+        if (!match || !element.checkVisibility()) continue;
+        const control = element.closest('button, [role], [tabindex], label') ?? element;
+        if (row.contains(control) && !quantities.has(match[1])) quantities.set(match[1], control);
+      }
+      if (['1', '2', '3', '5'].every(quantity => quantities.has(quantity)) &&
+          new Set(quantities.values()).size === 4) {
+        quantities.get('1').click();
+        break;
+      }
+    }
+  }
   if (!unitPrices.includes(cost) || !Number.isSafeInteger(cost) || cost <= 0) {
     return diagnose ? { failure: 'autoPriceMismatch' } : null;
   }
