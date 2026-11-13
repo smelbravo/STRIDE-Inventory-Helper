@@ -54,9 +54,14 @@ function prepareCase(selectSingle, expected, diagnose = false) {
   if (!box || url !== location.origin + location.pathname) {
     return diagnose ? { failure: 'autoCaseRoute' } : null;
   }
-  const normalize = value => value.replace(/[\u200B-\u200F\u2060\uFEFF]/g, '').trim().replace(/\s+/g, ' ');
-  const buttons = [...document.querySelectorAll('button, [role="button"]')].filter(button => button.checkVisibility());
-  const labels = button => [button.innerText, button.textContent, button.getAttribute('aria-label') ?? ''].map(normalize);
+  const normalize = value => (value ?? '').replace(/[\u200B-\u200F\u2060\uFEFF]/g, '').trim().replace(/\s+/g, ' ');
+  const buttons = [...document.querySelectorAll('button, [role="button"], input[type="button"], input[type="submit"]')]
+    .filter(button => button.checkVisibility());
+  const labels = button => {
+    const copy = button.cloneNode(true);
+    for (const icon of copy.querySelectorAll('svg, img, [hidden], [aria-hidden="true"]')) icon.remove();
+    return [copy.textContent, button.innerText, button.textContent, button.getAttribute('aria-label'), button.value].map(normalize);
+  };
   const price = /^OPEN\s*(?:[^\p{L}\d]*|[^\p{L}\d]*coins?\s*)(\d+(?:[, .]\d{3})*)(?:\s*coins?)?$/iu;
   const pricedButtons = buttons.flatMap(button => {
     const match = labels(button).map(label => label.match(price)).find(Boolean);
@@ -65,7 +70,12 @@ function prepareCase(selectSingle, expected, diagnose = false) {
   const { button: open, cost } = pricedButtons.length === 1 ? pricedButtons[0] : {};
   const failure = !open ? 'autoOpenControl'
     : open.matches(':disabled, [aria-disabled="true"]') ? 'autoOpenDisabled' : null;
-  if (failure) return diagnose ? { failure } : null;
+  if (failure) {
+    const openLabels = failure === 'autoOpenControl'
+      ? [...new Set(buttons.flatMap(labels).filter(label => /^open/i.test(label)))].slice(0, 4)
+      : [];
+    return diagnose ? { failure, detail: openLabels.map(label => label.slice(0, 80)).join(' / ') } : null;
+  }
   const unitPrices = [...normalize(document.body.innerText).matchAll(/(?<!\d)(\d+(?:[, .]\d{3})*)\s*per case\b/gi)]
     .map(match => Number(match[1].replace(/[, .]/g, '')));
   if (selectSingle && !unitPrices.includes(cost)) {
@@ -100,7 +110,10 @@ async function runCaseOpening(command, quantity = 0, expected = null) {
   }
 
   const read = () => readStrideResult(true, expected?.initial ? expected.box : '');
-  if (command === 'diagnose') return prepareCase(false, expected, true)?.failure ?? null;
+  if (command === 'diagnose') {
+    const diagnosis = prepareCase(false, expected, true);
+    return diagnosis?.failure ? diagnosis : null;
+  }
   if (command === 'prepare') {
     prepareCase(true, expected);
     return null;

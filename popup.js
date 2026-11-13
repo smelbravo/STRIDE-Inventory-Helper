@@ -32,6 +32,7 @@ let autoTab;
 let autoBusy = false;
 let autoProgress;
 let autoError = false;
+let autoDetail = '';
 const picker = document.querySelector('#case-picker');
 const caseSearch = document.querySelector('#case-search');
 const catalogStatus = document.querySelector('#catalog-status');
@@ -126,7 +127,7 @@ function renderAuto() {
   autoStop.disabled = autoProgress?.state !== 'running';
   autoStatus.textContent = autoProgress
     ? messages.autoStatus(autoProgress.done, autoProgress.total, messages.autoStates[autoProgress.state])
-    : autoError ? messages[autoError] : '';
+    : autoError ? [messages[autoError], autoDetail].filter(Boolean).join(' ') : '';
 }
 
 async function autoCommand(command, ...args) {
@@ -140,6 +141,7 @@ async function autoCommand(command, ...args) {
 autoForm.addEventListener('submit', async event => {
   event.preventDefault();
   autoBusy = true;
+  autoDetail = '';
   renderAuto();
   let openedTab;
   let failure = 'autoSetup';
@@ -175,7 +177,9 @@ autoForm.addEventListener('submit', async event => {
         await new Promise(resolve => setTimeout(resolve, 250));
       } while (Date.now() < deadline);
       if (!preview) {
-        failure = await autoCommand('diagnose', 0, { box: selected.name, url: selected.url }) ?? 'autoCatalogError';
+        const diagnosis = await autoCommand('diagnose', 0, { box: selected.name, url: selected.url });
+        failure = diagnosis?.failure ?? 'autoCatalogError';
+        autoDetail = diagnosis?.detail ?? '';
         openedTab = undefined;
         throw new Error();
       }
