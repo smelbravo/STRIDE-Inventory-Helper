@@ -55,8 +55,13 @@ function prepareCase(selectSingle, expected, diagnose = false) {
     return diagnose ? { failure: 'autoCaseRoute' } : null;
   }
   const normalize = value => (value ?? '').replace(/[\u200B-\u200F\u2060\uFEFF]/g, '').trim().replace(/\s+/g, ' ');
-  const buttons = [...document.querySelectorAll('button, [role="button"], input[type="button"], input[type="submit"]')]
-    .filter(button => button.checkVisibility());
+  const groupSelector = '[role="radiogroup"][aria-label="How many to open"]';
+  const groupButtons = [...document.querySelectorAll(groupSelector)]
+    .map(group => group.nextElementSibling)
+    .filter(button => button?.matches('button, [role="button"]'));
+  const buttons = groupButtons.length ? groupButtons
+    : [...document.querySelectorAll('button, [role="button"], input[type="button"], input[type="submit"]')]
+      .filter(button => button.checkVisibility());
   const labels = button => {
     const copy = button.cloneNode(true);
     for (const icon of copy.querySelectorAll('svg, img, [hidden], [aria-hidden="true"]')) icon.remove();
@@ -65,7 +70,8 @@ function prepareCase(selectSingle, expected, diagnose = false) {
   const price = /^OPEN\s*(?:[^\p{L}\d]*|[^\p{L}\d]*coins?\s*)(\d+(?:[, .]\d{3})*)(?:\s*coins?)?$/iu;
   const pricedButtons = buttons.flatMap(button => {
     const amount = button.querySelector('span.tabular-nums > img[src="/images/coin-engraved.svg"]')?.parentElement;
-    if (amount && normalize(amount.parentElement.firstChild?.textContent).toLowerCase() === 'open') {
+    if (amount && (groupButtons.includes(button) ||
+        normalize(amount.parentElement.firstChild?.textContent).toLowerCase() === 'open')) {
       const value = normalize(amount.textContent);
       if (/^\d+(?:[, .]\d{3})*$/.test(value)) {
         return [{ button, cost: Number(value.replace(/[, .]/g, '')) }];
@@ -81,16 +87,20 @@ function prepareCase(selectSingle, expected, diagnose = false) {
     const openLabels = failure === 'autoOpenControl'
       ? [...new Set(buttons.flatMap(labels).filter(label => /^open/i.test(label)))].slice(0, 4)
       : [];
-    return diagnose ? { failure, detail: openLabels.map(label => label.slice(0, 80)).join(' / ') } : null;
+    const detail = failure === 'autoOpenControl'
+      ? `Groups: ${groupButtons.length}. Price matches: ${pricedButtons.length}. ${openLabels.map(label => label.slice(0, 80)).join(' / ')}`
+      : '';
+    return diagnose ? { failure, detail } : null;
   }
   const unitPrices = [...normalize(document.body.innerText).matchAll(/(?<!\d)(\d+(?:[, .]\d{3})*)\s*per case\b/gi)]
     .map(match => Number(match[1].replace(/[, .]/g, '')));
   if (selectSingle && !unitPrices.includes(cost)) {
     const quantityPattern = /^(?:[×✕✖x]\s*)?([1235])$/i;
     const group = open.previousElementSibling;
-    if (group?.matches('[role="radiogroup"][aria-label="How many to open"]')) {
+    if (group?.matches(groupSelector)) {
       const single = [...group.querySelectorAll('button, [role="radio"]')]
-        .find(control => control.checkVisibility() && labels(control).some(label => label.match(quantityPattern)?.[1] === '1'));
+        .find(control => !control.matches(':disabled, [aria-disabled="true"]') &&
+          labels(control).some(label => label.match(quantityPattern)?.[1] === '1'));
       if (single) {
         single.click();
         return null;
