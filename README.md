@@ -21,6 +21,8 @@ Enter the case name, number of openings, total cost, and total value shown for t
 
 Filter by case name to see the matching totals. **Export CSV** includes all records matching the current search. Records are stored locally in the extension.
 
+With the results still open on the STRIDE case page, open the extension and click **Fill from STRIDE results**. It reads the drop value from **Sell all** and uses the **Open … more** button to suggest the quantity and cost. Check those values against the batch you opened and click **Record opening**.
+
 ### Built-in STRIDE features
 
 STRIDE inventory already provides float, rarity and wear, search, pattern and availability filters, sorting, and quick sell. Item details show the seed and offer 3D inspection. Cases can be bought into inventory or opened in batches of up to five, with an option to skip the animation and sell drops individually or together. Trades, the market, and the skin database have their own pages. The extension focuses on your personal opening history.
@@ -43,6 +45,8 @@ Usa o seletor **Idioma** no menu da extensão para alternar entre inglês e port
 No menu da extensão, introduz a caixa, a quantidade aberta, o custo total e o valor total apresentado para os drops. O saldo é a diferença entre o valor dos drops e o custo, em moedas do STRIDE. Representa o valor atribuído aos drops, independentemente de os venderes.
 
 Filtra pelo nome da caixa para consultar os totais correspondentes. **Exportar CSV** inclui os registos da pesquisa atual. Os dados ficam no armazenamento local da extensão.
+
+Com os resultados ainda abertos na página da caixa no STRIDE, abre a extensão e carrega em **Preencher a partir do STRIDE**. A extensão lê o valor dos drops em **Sell all** e usa o botão **Open … more** para sugerir a quantidade e o custo. Confirma os valores do lote que abriste e carrega em **Registar abertura**.
 
 ### Funcionalidades do STRIDE
 

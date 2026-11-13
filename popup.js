@@ -1,6 +1,7 @@
 const extension = globalThis.browser ?? globalThis.chrome;
 const form = document.querySelector('#record');
-const save = form.querySelector('button');
+const save = form.querySelector('[type="submit"]');
+const importButton = document.querySelector('#import-result');
 const filter = document.querySelector('#filter');
 const historyList = document.querySelector('#history');
 const totals = document.querySelector('#totals');
@@ -92,6 +93,65 @@ form.addEventListener('submit', async event => {
 });
 
 filter.addEventListener('input', render);
+
+// Runs in the active tab on demand and reads only the visible results.
+function readStrideResult() {
+  const visible = element => element.checkVisibility({ visibilityProperty: true });
+  const text = element => element.innerText.trim().replace(/\s+/g, ' ');
+  const buttons = [...document.querySelectorAll('button, [role="button"]')].filter(visible);
+  const sell = /^Sell all\s+(\d+(?:[, ]\d{3})*)$/i;
+  const repeat = /^Open\s+(\d+)\s+more\D+(\d+(?:[, ]\d{3})*)$/i;
+  const sellButtons = buttons.filter(button => sell.test(text(button)));
+  if (sellButtons.length !== 1) return null;
+  const sellButton = sellButtons[0];
+  let container = sellButton.parentElement;
+  let repeatMatch;
+  while (container && container !== document.body) {
+    const matches = buttons.filter(button => container.contains(button))
+      .map(button => text(button).match(repeat)).filter(Boolean);
+    if (matches.length > 1) return null;
+    if (matches.length === 1) {
+      [repeatMatch] = matches;
+      break;
+    }
+    container = container.parentElement;
+  }
+  const headings = [...document.querySelectorAll('h1')].filter(visible);
+  if (!repeatMatch || headings.length !== 1) return null;
+  const box = text(headings[0]);
+  const count = Number(repeatMatch[1]);
+  const cost = Number(repeatMatch[2].replace(/[, ]/g, ''));
+  const value = Number(text(sellButton).match(sell)[1].replace(/[, ]/g, ''));
+  if (!box || box.length > 140 || ![1, 2, 3, 5].includes(count) ||
+      !Number.isSafeInteger(cost) || cost > 1e12 || !Number.isSafeInteger(value) || value > 1e12) return null;
+  return { box, count, cost, value };
+}
+
+importButton.addEventListener('click', async () => {
+  importButton.disabled = true;
+  try {
+    const [tab] = await extension.tabs.query({ active: true, currentWindow: true });
+    if (!tab?.url || !/^https:\/\/stridecsgo\.net\/cases(?:\/|[?#]|$)/.test(tab.url)) {
+      setStatus('importPage');
+      return;
+    }
+    const [{ result } = {}] = await extension.scripting.executeScript({
+      target: { tabId: tab.id },
+      func: readStrideResult
+    });
+    if (!result) {
+      setStatus('importMissing');
+      return;
+    }
+    for (const [field, value] of Object.entries(result)) form.elements[field].value = value;
+    setStatus('importReady');
+  } catch {
+    setStatus('importMissing');
+  } finally {
+    importButton.disabled = false;
+  }
+});
+
 exportButton.addEventListener('click', () => {
   const rows = visibleRecords().map(({ box, count, cost, value, createdAt }) => {
     const safeBox = /^[=+\-@]/.test(box) ? "'" + box : box;
@@ -127,6 +187,7 @@ async function initialize() {
     records = stored.records ?? [];
     applyLanguage(stored.language ?? defaultLanguage);
     save.disabled = false;
+    importButton.disabled = false;
     languageSelect.disabled = false;
   } catch {
     applyLanguage(defaultLanguage);
