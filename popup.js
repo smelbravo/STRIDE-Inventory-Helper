@@ -133,8 +133,13 @@ function renderAuto() {
 async function autoCommand(command, ...args) {
   const reply = await extension.tabs.sendMessage(autoTab, {
     target: 'stride-opening', command, args
-  });
-  if (reply.error) throw new Error(reply.error);
+  }, { frameId: 0 });
+  if (!reply) throw new Error('No response from the case page.');
+  if (reply.error) {
+    const error = new Error(reply.error);
+    error.casePage = true;
+    throw error;
+  }
   return reply.result;
 }
 
@@ -195,8 +200,10 @@ autoForm.addEventListener('submit', async event => {
     openedTab = undefined;
     await extension.storage.local.set({ openingTab: autoTab });
     autoError = false;
-  } catch {
-    autoError = failure;
+  } catch (error) {
+    autoError = error.casePage ? 'autoPageError' : failure;
+    if (error.message) autoDetail = error.message.slice(0, 240);
+    if (error.casePage) openedTab = undefined;
     autoProgress = null;
   } finally {
     if (openedTab !== undefined) await extension.tabs.remove(openedTab).catch(() => {});

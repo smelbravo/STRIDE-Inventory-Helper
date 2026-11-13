@@ -1,5 +1,6 @@
 const translations = {
   en: {
+    autoPageError: 'The case page returned an error while preparing the opening.',
     autoCaseRoute: 'The STRIDE address did not match the selected case. Check the STRIDE tab left open.',
     autoOpenControl: 'Could not read the price on the Open button. Check the STRIDE tab left open.',
     autoOpenDisabled: 'STRIDE disabled the Open button. Check the STRIDE tab left open.',
@@ -52,6 +53,7 @@ const translations = {
     csvFilename: 'stride-openings.csv'
   },
   'pt-PT': {
+    autoPageError: 'Ocorreu um erro na página da caixa durante a preparação da abertura.',
     autoCaseRoute: 'O endereço no STRIDE não corresponde à caixa selecionada. Verifica o separador do STRIDE que ficou aberto.',
     autoOpenControl: 'Não foi possível ler o preço no botão Open. Verifica o separador do STRIDE que ficou aberto.',
     autoOpenDisabled: 'O botão Open está desativado no STRIDE. Verifica o separador que ficou aberto.',
