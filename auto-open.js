@@ -53,8 +53,14 @@ function readStrideResult(includeControls = false, caseName = '') {
       quickSell: sellValue === undefined ? null : Number(sellValue.replace(/[, ]/g, ''))
     } : null;
   };
-  const thumbnails = [...(modal?.querySelectorAll('button, [role="button"]') ?? [])]
-    .filter(control => visible(control) && control.querySelector('img') && /^\d+(?:[, ]\d{3})*$/.test(text(control)));
+  const imageControls = [...(modal?.querySelectorAll('button, [role="button"]') ?? [])]
+    .filter(control => visible(control) && control.querySelector('img'));
+  const priceLabel = /^\d+(?:[, ]\d{3})*$/;
+  const strips = [...new Set(imageControls.filter(control => priceLabel.test(text(control)))
+    .map(control => control.parentElement))].map(parent => imageControls.filter(control =>
+    control.parentElement === parent && (!text(control) || priceLabel.test(text(control)))));
+  const matchingStrips = strips.filter(strip => strip.length === count);
+  const thumbnails = matchingStrips.length === 1 ? matchingStrips[0] : [];
   const drops = [...(modal?.querySelectorAll('button img[alt], [role="button"] img[alt]') ?? [])]
     .filter(image => visible(image) && image.alt.trim())
     .map(image => image.alt.trim());

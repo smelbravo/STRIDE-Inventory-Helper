@@ -90,6 +90,14 @@ async function readCaseCatalog(categoryOnly = false) {
     return kinds.size === 1 ? [...kinds][0] : '';
   }
 
+  // The All filter includes items from every category and loads cards progressively.
+  const all = [...document.querySelectorAll('button, [role="tab"], a[href]')].find(element =>
+    /^All\s+[\d,]+$/i.test(clean(element.innerText)) && element.checkVisibility());
+  if (all && (activeCategory || (kind && kind !== 'all'))) {
+    all.click();
+    return [];
+  }
+
   const cards = readCards();
   if (!cards.length) return [];
   const positions = new Map();
@@ -158,7 +166,9 @@ document.querySelector('#load-catalog').addEventListener('click', async event =>
   try {
     const [activeTab] = await extension.tabs.query({ active: true, currentWindow: true });
     let tab = activeTab;
-    if (!/^https:\/\/stridecsgo\.net\/cases\/?(?:[?#]|$)/.test(tab?.url ?? '')) {
+    const onCatalog = /^https:\/\/stridecsgo\.net\/cases\/?(?:[?#]|$)/.test(tab?.url ?? '');
+    const selectedKind = onCatalog ? new URL(tab.url).searchParams.get('kind') : null;
+    if (!onCatalog || (selectedKind && selectedKind !== 'all')) {
       tab = await openStrideTab('https://stridecsgo.net/cases');
       catalogTab = tab.id;
     }
@@ -186,7 +196,7 @@ document.querySelector('#load-catalog').addEventListener('click', async event =>
     catalog = [...merged.values()].sort((a, b) => a.name.localeCompare(b.name));
     await extension.storage.local.set({ catalog, catalogVersion });
     renderCatalog();
-    if (tab.id === activeTab?.id) await syncCatalogCategory(tab).catch(() => {});
+    if (onCatalog) await syncCatalogCategory(activeTab).catch(() => {});
   } catch {
     catalogStatus.textContent = messages.catalogError;
   } finally {
@@ -243,6 +253,7 @@ function renderAuto() {
     ? messages.autoStatus(autoProgress.done, autoProgress.total, messages.autoStates[autoProgress.state])
     : autoError ? [messages[autoError], autoDetail].filter(Boolean).join(' ') : '';
   const drops = (autoProgress?.drops ?? []).filter(drop => drop?.itemId);
+  if (autoProgress?.done) autoStatus.textContent += ` · ${messages.capturedDrops(drops.length, autoProgress.done)}`;
   const details = document.querySelector('#session-drops');
   const list = document.querySelector('#session-drop-list');
   details.hidden = drops.length === 0;
