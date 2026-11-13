@@ -51,7 +51,7 @@ const catalogStatus = document.querySelector('#catalog-status');
 let catalog = [];
 const catalogVersion = 3;
 
-function readCaseCatalog(requestedCategory) {
+function readCaseCatalog(categoryOnly = false) {
   const categories = {
     'weapon case': 'weapon cases', 'souvenir package': 'souvenir packages',
     collection: 'collections', agent: 'agents', 'sticker capsule': 'sticker capsules',
@@ -63,8 +63,11 @@ function readCaseCatalog(requestedCategory) {
   const clean = value => (value ?? '').trim().replace(/\s+/g, ' ');
   const isName = value => value && !category(value) && !footer.test(value) && value !== '★';
 
-  const activeCategory = [...document.querySelectorAll('[aria-selected="true"], [aria-pressed="true"], [data-state="active"]')]
-    .map(element => category(clean(element.innerText).replace(/\s+[\d,]+$/, ''))).find(Boolean);
+  const kind = new URL(location.href).searchParams.get('kind');
+  const activeCategory = (kind === 'cases' ? 'weapon cases' : category((kind ?? '').replace(/[-_]/g, ' '))) ??
+    [...document.querySelectorAll('[aria-selected="true"], [aria-pressed="true"], [aria-current="page"], [data-state="active"]')]
+      .map(element => category(clean(element.innerText).replace(/\s+[\d,]+$/, ''))).find(Boolean) ?? '';
+  if (categoryOnly) return activeCategory;
   return [...document.querySelectorAll('a[href]')].flatMap(anchor => {
     const url = new URL(anchor.href);
     if (url.origin !== location.origin || !/^\/cases\/(?:[^/]+\/)*[^/]+\/?$/.test(url.pathname)) return [];
@@ -77,7 +80,7 @@ function readCaseCatalog(requestedCategory) {
     const name = [cardName, ...headings, imageName, ...lines].find(isName);
     const inferred = /\bcapsule\b/i.test(name) ? 'sticker capsules'
       : /\bsouvenir package\b/i.test(name) ? 'souvenir packages' : '';
-    const kind = categoryIndex < 0 ? (activeCategory || inferred || requestedCategory) : category(lines[categoryIndex]);
+    const kind = categoryIndex < 0 ? (activeCategory || inferred) : category(lines[categoryIndex]);
     return name ? [{ name, kind, url: url.origin + url.pathname }] : [];
   });
 }
@@ -132,8 +135,7 @@ document.querySelector('#load-catalog').addEventListener('click', async event =>
     for (let attempt = 0; attempt < 16 && !entries.length; attempt++) {
       const [{ result }] = await extension.scripting.executeScript({
         target: { tabId: tab.id },
-        func: readCaseCatalog,
-        args: [tab.id === activeTab?.id ? caseCategory.value : '']
+        func: readCaseCatalog
       });
       entries = result;
       if (!entries.length) await new Promise(resolve => setTimeout(resolve, 250));
@@ -149,6 +151,7 @@ document.querySelector('#load-catalog').addEventListener('click', async event =>
     catalog = [...merged.values()].sort((a, b) => a.name.localeCompare(b.name));
     await extension.storage.local.set({ catalog, catalogVersion });
     renderCatalog();
+    await syncCatalogCategory(tab).catch(() => {});
   } catch {
     catalogStatus.textContent = messages.catalogError;
   } finally {
@@ -180,6 +183,17 @@ function renderAuto() {
     }
     list.replaceChildren(items);
   }
+}
+
+async function syncCatalogCategory(tab) {
+  if (!/^https:\/\/stridecsgo\.net\/cases\/?(?:[?#]|$)/.test(tab?.url ?? '')) return;
+  const previous = caseCategory.value;
+  const [{ result }] = await extension.scripting.executeScript({
+    target: { tabId: tab.id }, func: readCaseCatalog, args: [true]
+  });
+  if (caseCategory.value !== previous || (result && !Object.hasOwn(messages.caseCategories, result))) return;
+  caseCategory.value = result;
+  renderCatalog();
 }
 
 async function autoCommand(command, ...args) {
@@ -455,6 +469,8 @@ async function initialize() {
     const stored = await extension.storage.local.get(['language', 'catalog', 'catalogVersion']);
     catalog = stored.catalogVersion === catalogVersion ? (stored.catalog ?? []) : [];
     applyLanguage(stored.language ?? defaultLanguage);
+    void extension.tabs.query({ active: true, currentWindow: true })
+      .then(([tab]) => syncCatalogCategory(tab)).catch(() => {});
     languageSelect.disabled = false;
     await refreshRecords();
     render();
