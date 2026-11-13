@@ -66,8 +66,16 @@ document.querySelector('#load-catalog').addEventListener('click', async event =>
   catalogStatus.textContent = '';
   let catalogTab;
   try {
-    const tab = await openStrideTab('https://stridecsgo.net/cases');
-    catalogTab = tab.id;
+    const [activeTab] = await extension.tabs.query({ active: true, currentWindow: true });
+    let tab = activeTab;
+    if (!/^https:\/\/stridecsgo\.net\/cases\/?(?:[?#]|$)/.test(tab?.url ?? '')) {
+      tab = await openStrideTab('https://stridecsgo.net/cases');
+      catalogTab = tab.id;
+    }
+    if (/^https:\/\/stridecsgo\.net\/login(?:[/?#]|$)/.test(tab.url ?? '')) {
+      catalogStatus.textContent = messages.catalogLogin;
+      return;
+    }
     let entries = [];
     for (let attempt = 0; attempt < 16 && !entries.length; attempt++) {
       const [{ result }] = await extension.scripting.executeScript({
@@ -83,7 +91,10 @@ document.querySelector('#load-catalog').addEventListener('click', async event =>
       entries = result;
       if (!entries.length) await new Promise(resolve => setTimeout(resolve, 250));
     }
-    if (!entries.length) throw new Error();
+    if (!entries.length) {
+      catalogStatus.textContent = messages.catalogEmpty;
+      return;
+    }
     catalog = [...new Map(entries.map(entry => [entry.url, entry])).values()].sort((a, b) => a.name.localeCompare(b.name));
     await extension.storage.local.set({ catalog });
     renderCatalog();

@@ -1,7 +1,9 @@
 const translations = {
   en: {
     loadCatalog: 'Load case catalog',
-    catalogError: 'Open STRIDE and sign in, then try loading the catalog again.',
+    catalogError: 'Could not access the catalog. Open STRIDE Cases in this tab and try again.',
+    catalogLogin: 'The catalog tab was redirected to login. Load the catalog from your signed-in Cases tab.',
+    catalogEmpty: 'The Cases page loaded, but no case links were found.',
     chooseCase: 'Choose a case',
     casesTab: 'Cases',
     settingsTab: 'Settings',
@@ -43,7 +45,9 @@ const translations = {
   },
   'pt-PT': {
     loadCatalog: 'Carregar catálogo',
-    catalogError: 'Abre o STRIDE, inicia sessão e volta a carregar o catálogo.',
+    catalogError: 'Não foi possível aceder ao catálogo. Abre a página de caixas neste separador e tenta novamente.',
+    catalogLogin: 'O separador do catálogo foi encaminhado para o login. Carrega o catálogo no separador de caixas onde já tens sessão iniciada.',
+    catalogEmpty: 'A página de caixas carregou, mas a extensão não encontrou ligações para as caixas.',
     chooseCase: 'Escolhe uma caixa',
     casesTab: 'Caixas',
     settingsTab: 'Definições',
