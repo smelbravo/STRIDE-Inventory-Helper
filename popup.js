@@ -222,16 +222,65 @@ document.querySelector('#load-catalog').addEventListener('click', async event =>
 });
 
 const sessionRarity = document.querySelector('#session-rarity');
+const sellSessionItem = document.querySelector('#sell-session-item');
 const selectedDrops = new Set();
+const requestedSales = new Set();
+let sellingDrop = false;
+let pendingSaleId;
+const rarityColors = new Map([
+  ['CONTRABAND', '#ffbc58'], ['EXTRAORDINARY', '#ffbc58'],
+  ['COVERT', '#ff6868'], ['CLASSIFIED', '#ec77e5'], ['EXOTIC', '#ec77e5'],
+  ['RESTRICTED', '#ba93ff'], ['REMARKABLE', '#ba93ff'],
+  ['MIL-SPEC GRADE', '#8199ff'], ['HIGH GRADE', '#8199ff'],
+  ['INDUSTRIAL GRADE', '#83c9fb'], ['CONSUMER GRADE', '#b9c5d3']
+]);
+const rarityOrder = [...rarityColors.keys()];
+function rarityRank(rarity) {
+  const rank = rarityOrder.indexOf(rarity?.toUpperCase());
+  return rank === -1 ? rarityOrder.length : rank;
+}
 let renderedDrops = '';
 sessionRarity.addEventListener('change', renderAuto);
 function dropSummary(drop) {
-  return [drop.name, drop.rarity, '#' + drop.itemId,
+  const tier = drop.seed == null ? null : globalThis.strideCaseHardenedTier(drop.name, Number(drop.seed));
+  const pattern = tier ? (tier.tier ? `${tier.gemKind === 'gold' ? 'Gold Gem' : 'Blue Gem'} · Tier ${tier.tier}` : tier.label)
+    : globalThis.strideDopplerPhase(drop.name, drop.finish);
+  return [drop.name, pattern, drop.rarity, '#' + drop.itemId,
     drop.float == null ? '' : 'Float ' + drop.float,
     drop.seed == null ? '' : messages.dropSeed + ' ' + drop.seed,
     drop.quickSell == null ? '' : 'Quick Sell ' + number.format(drop.quickSell)
   ].filter(Boolean).join(' · ');
 }
+
+function selectedSellableDrop() {
+  if (selectedDrops.size !== 1 || autoBusy || autoProgress?.state === 'running') return null;
+  return autoProgress?.drops?.find(drop => selectedDrops.has(drop.itemId) && drop.quickSell != null &&
+    !requestedSales.has(drop.itemId)) ?? null;
+}
+
+sellSessionItem.addEventListener('click', async () => {
+  const drop = selectedSellableDrop();
+  if (!drop || sellingDrop) return;
+  const status = document.querySelector('#session-selection-status');
+  if (pendingSaleId !== drop.itemId) {
+    pendingSaleId = drop.itemId;
+    status.textContent = messages.confirmDropSale(drop.name, number.format(drop.quickSell));
+    return;
+  }
+  pendingSaleId = undefined;
+  sellingDrop = true;
+  renderAuto();
+  try {
+    const submitted = await autoCommand('sellVisibleDrop', 0, { itemId: drop.itemId, quickSell: drop.quickSell });
+    if (submitted) requestedSales.add(drop.itemId);
+    status.textContent = submitted ? messages.dropSaleSubmitted : messages.dropSaleUnavailable;
+  } catch {
+    status.textContent = messages.dropSaleUnavailable;
+  } finally {
+    sellingDrop = false;
+    renderAuto();
+  }
+});
 
 document.querySelector('#select-visible-drops').addEventListener('click', () => {
   for (const drop of autoProgress?.drops ?? []) {
@@ -262,13 +311,20 @@ async function copyDrops(lines) {
 }
 
 function renderAuto() {
+  const sellable = selectedSellableDrop();
+  if (pendingSaleId && pendingSaleId !== sellable?.itemId) {
+    pendingSaleId = undefined;
+    document.querySelector('#session-selection-status').textContent = '';
+  }
+  sellSessionItem.disabled = sellingDrop || !sellable;
   autoForm.querySelector('[type="submit"]').disabled = autoBusy || autoProgress?.state === 'running';
   autoStop.disabled = autoProgress?.state !== 'running';
   showCaseTab.hidden = autoBusy || loadingCaseTab === undefined;
   autoStatus.textContent = autoProgress
     ? messages.autoStatus(autoProgress.done, autoProgress.total, messages.autoStates[autoProgress.state])
     : autoError ? [messages[autoError], autoDetail].filter(Boolean).join(' ') : '';
-  const drops = (autoProgress?.drops ?? []).filter(drop => drop?.itemId);
+  const drops = (autoProgress?.drops ?? []).filter(drop => drop?.itemId)
+    .sort((a, b) => rarityRank(a.rarity) - rarityRank(b.rarity));
   if (autoProgress?.done) autoStatus.textContent += ` · ${messages.capturedDrops(drops.length, autoProgress.done)}`;
   const details = document.querySelector('#session-drops');
   const list = document.querySelector('#session-drop-list');
@@ -282,7 +338,7 @@ function renderAuto() {
   const signature = JSON.stringify([drops, rarity, messages.allDropRarities]);
   if (renderedDrops !== signature) {
     renderedDrops = signature;
-    const rarities = [...new Set(drops.map(drop => drop.rarity).filter(Boolean))].sort();
+    const rarities = [...new Set(drops.map(drop => drop.rarity).filter(Boolean))];
     sessionRarity.replaceChildren(new Option(messages.allDropRarities, ''), ...rarities.map(value => new Option(value, value)));
     sessionRarity.value = rarities.includes(rarity) ? rarity : '';
     const items = document.createDocumentFragment();
@@ -296,9 +352,15 @@ function renderAuto() {
       checkbox.addEventListener('change', () => {
         if (checkbox.checked) selectedDrops.add(drop.itemId);
         else selectedDrops.delete(drop.itemId);
+        renderAuto();
       });
       label.className = 'session-drop';
-      label.append(checkbox, dropSummary(drop));
+      const summary = document.createElement('span');
+      const name = document.createElement('strong');
+      name.textContent = drop.name;
+      name.style.color = rarityColors.get(drop.rarity?.toUpperCase()) ?? '';
+      summary.append(name, dropSummary(drop).slice(drop.name.length));
+      label.append(checkbox, summary);
       item.append(label);
       if (/^(?:★\s*)?(?:StatTrak™\s*)?(?:[^|]*\bKnife\b|[^|]*\bBayonet\b|Karambit|Shadow Daggers|Talon|Kukri)\s*(?:\||$)/i.test(drop.name)) {
         item.className = 'session-knife';

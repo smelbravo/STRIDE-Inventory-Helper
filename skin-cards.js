@@ -1,10 +1,5 @@
 (() => {
   const badgeClass = 'stride-helper-skin-details';
-  const phases = {
-    415: 'Ruby', 416: 'Sapphire', 417: 'Black Pearl',
-    418: 'Phase 1', 419: 'Phase 2', 420: 'Phase 3', 421: 'Phase 4',
-    568: 'Emerald', 569: 'Phase 1', 570: 'Phase 2', 571: 'Phase 3', 572: 'Phase 4'
-  };
   const cardSelector = 'a[href], button, [role="button"], [data-item-id]';
   let pending = false;
 
@@ -31,14 +26,8 @@
         const tier = globalThis.strideCaseHardenedTier(name, Number(seed));
         if (tier) tags.push(tier.tier ? (tier.gemKind === 'gold' ? 'Gold Gem' : 'Blue Gem') + ' · T' + tier.tier : tier.label);
       }
-      if (/\bdoppler\b/i.test(name)) {
-        const explicit = name.match(/\b(Ruby|Sapphire|Emerald|Black Pearl|Phase [1-4])\b/i)?.[1];
-        const gamma = /\bgamma doppler\b/i.test(name);
-        const knownFamily = gamma ? Number(finish) >= 568 && Number(finish) <= 572
-          : Number(finish) >= 415 && Number(finish) <= 421;
-        const phase = explicit ?? (knownFamily ? phases[finish] : undefined);
-        if (phase) tags.push(phase);
-      }
+      const phase = globalThis.strideDopplerPhase(name, finish);
+      if (phase) tags.push(phase);
       if (!tags.length) {
         badge?.remove();
         continue;

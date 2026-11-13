@@ -47,9 +47,13 @@ function readStrideResult(includeControls = false, caseName = '') {
     const details = modal?.innerText ?? '';
     const float = details.match(/\bFloat\s+([01]\.\d+|[01])\b/i)?.[1];
     const seed = details.match(/\bPattern Seed\s+(\d+)\b/i)?.[1];
-    const sellValue = details.match(/\bSell\s+(\d+(?:[, ]\d{3})*)\b/i)?.[1];
+    const finish = details.match(/\bFinish Catalog\s*:?\s*(\d+)\b/i)?.[1];
+    const sellControls = [...(modal?.querySelectorAll('button, [role="button"]') ?? [])]
+      .filter(control => visible(control) && /^Sell\s+\d+(?:[, ]\d{3})*$/i.test(text(control)));
+    const sellControl = sellControls.length === 1 ? sellControls[0] : null;
+    const sellValue = sellControl ? text(sellControl).match(sell)[1] : undefined;
     return title && itemId ? {
-      name: title, itemId, rarity, float, seed,
+      name: title, itemId, rarity, float, seed, finish,
       quickSell: sellValue === undefined ? null : Number(sellValue.replace(/[, ]/g, ''))
     } : null;
   };
@@ -68,7 +72,7 @@ function readStrideResult(includeControls = false, caseName = '') {
     const title = modal?.querySelector('h1,h2,h3,[role="heading"]')?.innerText.trim();
     if (title) drops.push(title);
   }
-  return { data: { ...data, itemId: id[1] }, button, drops, thumbnails, inspect };
+  return { data: { ...data, itemId: id[1] }, button, drops, thumbnails, inspect, modal };
 }
 
 function prepareCase(selectBatch, expected, diagnose = false) {
@@ -156,6 +160,23 @@ function prepareCase(selectBatch, expected, diagnose = false) {
 async function runCaseOpening(command, quantity = 0, expected = null) {
   const key = '__strideInventoryOpening';
   if (command === 'status') return globalThis[key]?.progress ?? null;
+  if (command === 'sellVisibleDrop') {
+    const session = globalThis[key];
+    if (!session || session.progress.state === 'running' || location.href !== session.url) return false;
+    const recorded = session.progress.drops.find(drop => drop.itemId === expected?.itemId);
+    if (!recorded || recorded.quickSell == null || recorded.quickSell !== expected.quickSell) return false;
+    const result = readStrideResult(true, recorded.name);
+    const current = result?.inspect();
+    if (current?.itemId !== recorded.itemId || current.quickSell !== recorded.quickSell) return false;
+    const sellButton = [...result.modal.querySelectorAll('button')].find(button =>
+      button.checkVisibility({ visibilityProperty: true }) && !button.disabled &&
+      /^Sell\s+\d+(?:[, ]\d{3})*$/i.test(button.innerText.trim()));
+    if (!sellButton || session.requestedSales?.has(recorded.itemId)) return false;
+    session.requestedSales ??= new Set();
+    session.requestedSales.add(recorded.itemId);
+    sellButton.click();
+    return true;
+  }
   if (command === 'stop') {
     if (globalThis[key]) globalThis[key].stop = true;
     return globalThis[key]?.progress ?? null;
@@ -206,7 +227,7 @@ async function runCaseOpening(command, quantity = 0, expected = null) {
       !Number.isSafeInteger(quantity) || quantity < 1 || quantity > 1000000 ||
       quantity % first.data.count !== 0) return null;
 
-  const session = { stop: false, progress: { done: 0, total: quantity, state: 'running', drops: [] } };
+  const session = { url: location.href, stop: false, progress: { done: 0, total: quantity, state: 'running', drops: [] } };
   globalThis[key] = session;
   const originalUrl = location.href;
   const store = (globalThis.browser ?? globalThis.chrome).storage.local;

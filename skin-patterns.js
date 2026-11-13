@@ -183,4 +183,13 @@
     }
 
     globalThis.strideCaseHardenedTier = resolveCaseHardenedTier;
+    const doppler = ['Ruby', 'Sapphire', 'Black Pearl', 'Phase 1', 'Phase 2', 'Phase 3', 'Phase 4'];
+    const gamma = ['Emerald', 'Phase 1', 'Phase 2', 'Phase 3', 'Phase 4'];
+    globalThis.strideDopplerPhase = (name, finish) => {
+        if (!/\bdoppler\b/i.test(name)) return null;
+        const isGamma = /\bgamma doppler\b/i.test(name);
+        const phases = isGamma ? gamma : doppler;
+        const explicit = phases.find(phase => new RegExp(`\\b${phase}\\b`, 'i').test(name));
+        return explicit ?? phases[Number(finish) - (isGamma ? 568 : 415)] ?? null;
+    };
 })();
