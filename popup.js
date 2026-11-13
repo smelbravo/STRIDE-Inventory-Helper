@@ -52,22 +52,30 @@ let catalog = [];
 const catalogVersion = 3;
 
 function readCaseCatalog() {
-  const category = /^(?:weapon cases|souvenir packages|collections|agents|sticker capsules|patch packs|pins|music kits|graffiti)$/i;
+  const categories = {
+    'weapon case': 'weapon cases', 'souvenir package': 'souvenir packages',
+    collection: 'collections', agent: 'agents', 'sticker capsule': 'sticker capsules',
+    'patch pack': 'patch packs', pin: 'pins', 'music kit': 'music kits', graffiti: 'graffiti'
+  };
+  const category = value => Object.entries(categories).find(([singular, plural]) =>
+    [singular, plural].includes(value.toLowerCase()))?.[1];
   const footer = /^(?:open\b|[\d,.\s]+$|[^\p{L}\d]+\s*\d)/iu;
   const clean = value => (value ?? '').trim().replace(/\s+/g, ' ');
   const isName = value => value && !category.test(value) && !footer.test(value) && value !== '★';
 
+  const activeCategory = [...document.querySelectorAll('[aria-selected="true"], [aria-pressed="true"], [data-state="active"]')]
+    .map(element => category(clean(element.innerText).replace(/\s+[\d,]+$/, ''))).find(Boolean);
   return [...document.querySelectorAll('a[href]')].flatMap(anchor => {
     const url = new URL(anchor.href);
     if (url.origin !== location.origin || !/^\/cases\/[^/]+\/?$/.test(url.pathname)) return [];
 
     const lines = anchor.innerText.split('\n').map(clean).filter(Boolean);
-    const categoryIndex = lines.findIndex(line => category.test(line));
+    const categoryIndex = lines.findIndex(category);
     const cardName = categoryIndex < 0 ? '' : lines[categoryIndex + 1];
     const headings = [...anchor.querySelectorAll('h2,h3,h4')].map(heading => clean(heading.innerText));
     const imageName = clean(anchor.querySelector('img[alt]')?.alt);
     const name = [cardName, ...headings, imageName, ...lines].find(isName);
-    const kind = categoryIndex < 0 ? '' : lines[categoryIndex].toLowerCase();
+    const kind = categoryIndex < 0 ? (activeCategory ?? '') : category(lines[categoryIndex]);
     return name ? [{ name, kind, url: url.origin + url.pathname }] : [];
   });
 }
@@ -79,6 +87,8 @@ function renderCatalog() {
   caseCategory.replaceChildren(new Option(messages.allCategories, ''), ...Object.entries(messages.caseCategories)
     .map(([key, label]) => new Option(label, key)));
   caseCategory.value = category;
+  document.querySelector('#category-hint').textContent = category && !catalog.some(entry => entry.kind === category)
+    ? messages.catalogCategoryHint : '';
   const matching = catalog.filter(entry => (!category || entry.kind === category) && entry.name.toLowerCase().includes(query));
   picker.replaceChildren(new Option(matching.length ? messages.chooseCatalogItem : messages.noCatalogItems, ''),
     ...matching.map(entry => new Option(entry.name, entry.url)));
@@ -129,7 +139,11 @@ document.querySelector('#load-catalog').addEventListener('click', async event =>
       catalogStatus.textContent = messages.catalogEmpty;
       return;
     }
-    catalog = [...new Map(entries.map(entry => [entry.url, entry])).values()].sort((a, b) => a.name.localeCompare(b.name));
+    const merged = new Map(catalog.map(entry => [entry.url, entry]));
+    for (const entry of entries) {
+      merged.set(entry.url, { ...entry, kind: entry.kind || merged.get(entry.url)?.kind || '' });
+    }
+    catalog = [...merged.values()].sort((a, b) => a.name.localeCompare(b.name));
     await extension.storage.local.set({ catalog, catalogVersion });
     renderCatalog();
   } catch {

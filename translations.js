@@ -1,5 +1,6 @@
 const translations = {
   en: {
+    catalogCategoryHint: 'Select this category on the STRIDE Cases page, then click Load case catalog again.',
     sessionDrops: 'Session drops',
     categoryLabel: 'Category',
     catalogSearch: 'Search catalog',
@@ -75,6 +76,7 @@ const translations = {
     csvFilename: 'stride-openings.csv'
   },
   'pt-PT': {
+    catalogCategoryHint: 'Seleciona esta categoria na página Cases do STRIDE e volta a carregar o catálogo.',
     sessionDrops: 'Drops da sessão',
     categoryLabel: 'Categoria',
     catalogSearch: 'Pesquisar no catálogo',
