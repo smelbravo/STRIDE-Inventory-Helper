@@ -49,7 +49,7 @@ function readStrideResult(includeControls = false, caseName = '') {
   return { data: { ...data, itemId: id[1] }, button, drops };
 }
 
-function prepareCase(selectSingle, expected, diagnose = false) {
+function prepareCase(selectBatch, expected, diagnose = false) {
   const { box, url } = expected ?? {};
   if (!box || url !== location.origin + location.pathname) {
     return diagnose ? { failure: 'autoCaseRoute' } : null;
@@ -96,14 +96,15 @@ function prepareCase(selectSingle, expected, diagnose = false) {
   }
   const unitPrice = expected.unitPrice;
   if (!Number.isSafeInteger(unitPrice) || unitPrice <= 0) return null;
-  const unitPrices = [unitPrice];
-  if (selectSingle && !unitPrices.includes(cost)) {
+  const count = expected.count;
+  const batchPrice = unitPrice * count;
+  if (selectBatch && cost !== batchPrice) {
     const quantityPattern = /^(?:[×✕✖x]\s*)?([1235])$/i;
     const group = open.previousElementSibling;
     if (group?.matches(groupSelector)) {
       const single = [...group.querySelectorAll('button, [role="radio"]')]
         .find(control => !control.matches(':disabled, [aria-disabled="true"]') &&
-          labels(control).some(label => label.match(quantityPattern)?.[1] === '1'));
+          labels(control).some(label => label.match(quantityPattern)?.[1] === String(count)));
       if (single) {
         single.click();
         return null;
@@ -119,15 +120,15 @@ function prepareCase(selectSingle, expected, diagnose = false) {
       }
       if (['1', '2', '3', '5'].every(quantity => quantities.has(quantity)) &&
           new Set(quantities.values()).size === 4) {
-        quantities.get('1').click();
+        quantities.get(String(count)).click();
         break;
       }
     }
   }
-  if (!unitPrices.includes(cost) || !Number.isSafeInteger(cost) || cost <= 0) {
+  if (cost !== batchPrice || !Number.isSafeInteger(cost) || cost <= 0) {
     return diagnose ? { failure: 'autoPriceMismatch' } : null;
   }
-  return { box, url, count: 1, cost, button: open };
+  return { box, url, count, cost, button: open };
 }
 
 async function runCaseOpening(command, quantity = 0, expected = null) {
@@ -148,11 +149,13 @@ async function runCaseOpening(command, quantity = 0, expected = null) {
     });
     if (!response.ok) throw new Error('Case details returned HTTP ' + response.status + '.');
     const data = await response.json();
-    if (String(data.id) !== id || data.openable !== true || !data.openCounts?.includes(1) ||
+    if (String(data.id) !== id || data.openable !== true || !Array.isArray(data.openCounts) ||
         !Number.isSafeInteger(data.price) || data.price <= 0) {
       throw new Error('The API did not confirm a price for opening one case.');
     }
-    return { ...expected, unitPrice: data.price };
+    const count = [5, 3, 2, 1].find(size => data.openCounts.includes(size) && quantity % size === 0);
+    if (!count) throw new Error('No supported batch size divides the requested total.');
+    return { ...expected, count, unitPrice: data.price };
   }
 
   const read = () => readStrideResult(true, expected?.initial ? expected.box : '');
@@ -161,12 +164,18 @@ async function runCaseOpening(command, quantity = 0, expected = null) {
     return diagnosis?.failure ? diagnosis : null;
   }
   if (command === 'prepare') {
+    if (expected.skipAnimation) {
+      const label = [...document.querySelectorAll('label')].find(element => /quick open.*skip animation/i.test(element.textContent));
+      const toggle = label?.control ?? label?.querySelector('input[type="checkbox"], [role="switch"], button[aria-pressed]');
+      if (toggle && (toggle.checked === false || toggle.getAttribute('aria-checked') === 'false' ||
+          toggle.getAttribute('aria-pressed') === 'false')) toggle.click();
+    }
     prepareCase(true, expected);
     return null;
   }
   const initial = expected?.initial || command === 'previewInitial' ? prepareCase(false, expected) : null;
   const first = initial
-    ? { data: { box: initial.box, url: initial.url, count: 1, cost: initial.cost, initial: true, unitPrice: expected.unitPrice }, button: initial.button }
+    ? { data: { box: initial.box, url: initial.url, count: initial.count, cost: initial.cost, initial: true, unitPrice: expected.unitPrice }, button: initial.button }
     : read();
   if (command === 'previewInitial') return initial ? first.data : null;
   if (command === 'preview') return first?.data ?? null;
@@ -190,7 +199,7 @@ async function runCaseOpening(command, quantity = 0, expected = null) {
           if (location.href !== originalUrl) throw new Error('failed');
           if (current.data.initial) {
             const control = prepareCase(false, first.data);
-            ready = control && { data: { box: control.box, url: control.url, count: 1, cost: control.cost, initial: true }, button: control.button };
+            ready = control && { data: { box: control.box, url: control.url, count: control.count, cost: control.cost, initial: true }, button: control.button };
           } else {
             ready = read();
           }

@@ -192,9 +192,10 @@ autoForm.addEventListener('submit', async event => {
     autoTab = tab.id;
     await extension.scripting.executeScript({ target: { tabId: autoTab }, files: ['auto-open.js'] });
     failure = 'autoTabError';
+    const quantity = Number(autoForm.elements.quantity.value);
     let preview;
     if (selected) {
-      const details = await autoCommand('caseDetails', 0, { box: selected.name, url: selected.url });
+      const details = await autoCommand('caseDetails', quantity, { box: selected.name, url: selected.url, skipAnimation: autoForm.elements.skipAnimation.checked });
       const deadline = Date.now() + 8000;
       do {
         await autoCommand('prepare', 0, details);
@@ -216,7 +217,6 @@ autoForm.addEventListener('submit', async event => {
     } else {
       preview = await autoCommand('preview');
     }
-    const quantity = Number(autoForm.elements.quantity.value);
     failure = selected ? 'autoCatalogError' : 'autoSetup';
     if (!preview || quantity % preview.count !== 0 || !Number.isSafeInteger(quantity * preview.cost)) throw new Error();
     if (!confirm(messages.autoConfirm(number.format(quantity), number.format(quantity / preview.count * preview.cost)))) return;
