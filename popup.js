@@ -130,11 +130,11 @@ function renderAuto() {
 }
 
 async function autoCommand(command, ...args) {
-  const [{ result } = {}] = await extension.scripting.executeScript({
-    target: { tabId: autoTab }, func: (action, params) => runCaseOpening(action, ...params),
-    args: [command, args]
+  const reply = await extension.tabs.sendMessage(autoTab, {
+    target: 'stride-opening', command, args
   });
-  return result;
+  if (reply.error) throw new Error(reply.error);
+  return reply.result;
 }
 
 autoForm.addEventListener('submit', async event => {
@@ -142,8 +142,16 @@ autoForm.addEventListener('submit', async event => {
   autoBusy = true;
   renderAuto();
   let openedTab;
+  let failure = 'autoSetup';
   try {
     const selected = catalog.find(entry => entry.url === picker.value);
+    if (selected) {
+      failure = 'autoPermission';
+      const access = { origins: ['https://stridecsgo.net/*'] };
+      const granted = await extension.permissions.contains(access) || await extension.permissions.request(access);
+      if (!granted) throw new Error();
+      failure = 'autoTabError';
+    }
     const tab = selected ? await openStrideTab(selected.url)
       : (await extension.tabs.query({ active: true, currentWindow: true }))[0];
     if (selected) openedTab = tab.id;
@@ -155,6 +163,7 @@ autoForm.addEventListener('submit', async event => {
     if (!tab?.url || !/^https:\/\/stridecsgo\.net\/cases(?:\/|[?#]|$)/.test(tab.url)) throw new Error();
     autoTab = tab.id;
     await extension.scripting.executeScript({ target: { tabId: autoTab }, files: ['auto-open.js'] });
+    failure = 'autoTabError';
     let preview;
     if (selected) {
       const deadline = Date.now() + 8000;
@@ -168,6 +177,7 @@ autoForm.addEventListener('submit', async event => {
       preview = await autoCommand('preview');
     }
     const quantity = Number(autoForm.elements.quantity.value);
+    failure = selected ? 'autoCatalogError' : 'autoSetup';
     if (!preview || quantity % preview.count !== 0 || !Number.isSafeInteger(quantity * preview.cost)) throw new Error();
     if (!confirm(messages.autoConfirm(number.format(quantity), number.format(quantity / preview.count * preview.cost)))) return;
     autoProgress = await autoCommand('start', quantity, preview);
@@ -176,7 +186,7 @@ autoForm.addEventListener('submit', async event => {
     await extension.storage.local.set({ openingTab: autoTab });
     autoError = false;
   } catch {
-    autoError = picker.value ? 'autoCatalogError' : 'autoSetup';
+    autoError = failure;
     autoProgress = null;
   } finally {
     if (openedTab !== undefined) await extension.tabs.remove(openedTab).catch(() => {});

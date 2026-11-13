@@ -148,3 +148,17 @@ async function runCaseOpening(command, quantity = 0, expected = null) {
   void run();
   return session.progress;
 }
+
+// Keep commands in the same content-script context as the opening session.
+if (!globalThis.__strideOpeningListener) {
+  const runtime = (globalThis.browser ?? globalThis.chrome).runtime;
+  runtime.onMessage.addListener((message, sender, respond) => {
+    if (sender.id !== runtime.id || message?.target !== 'stride-opening') return false;
+    runCaseOpening(message.command, ...message.args).then(
+      result => respond({ result }),
+      error => respond({ error: error.message })
+    );
+    return true;
+  });
+  globalThis.__strideOpeningListener = true;
+}

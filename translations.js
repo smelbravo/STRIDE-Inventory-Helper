@@ -1,5 +1,7 @@
 const translations = {
   en: {
+    autoPermission: 'Allow access to stridecsgo.net in the extension permissions to open from the catalog.',
+    autoTabError: 'Could not connect to the STRIDE case tab. Check site access in the extension permissions.',
     loadCatalog: 'Load case catalog',
     catalogError: 'Could not access the catalog. Open STRIDE Cases in this tab and try again.',
     catalogLogin: 'The catalog tab was redirected to login. Load the catalog from your signed-in Cases tab.',
@@ -46,6 +48,8 @@ const translations = {
     csvFilename: 'stride-openings.csv'
   },
   'pt-PT': {
+    autoPermission: 'Autoriza o acesso a stridecsgo.net nas permissões da extensão para abrir pelo catálogo.',
+    autoTabError: 'Não foi possível comunicar com o separador da caixa. Verifica o acesso ao site nas permissões da extensão.',
     loadCatalog: 'Carregar catálogo',
     catalogError: 'Não foi possível aceder ao catálogo. Abre a página de caixas neste separador e tenta novamente.',
     catalogLogin: 'O separador do catálogo foi encaminhado para o login. Carrega o catálogo no separador de caixas onde já tens sessão iniciada.',
