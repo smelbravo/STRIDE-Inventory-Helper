@@ -51,7 +51,7 @@ const catalogStatus = document.querySelector('#catalog-status');
 let catalog = [];
 const catalogVersion = 3;
 
-function readCaseCatalog(categoryOnly = false) {
+async function readCaseCatalog(categoryOnly = false) {
   const categories = {
     'weapon case': 'weapon cases', 'souvenir package': 'souvenir packages',
     collection: 'collections', agent: 'agents', 'sticker capsule': 'sticker capsules',
@@ -64,11 +64,12 @@ function readCaseCatalog(categoryOnly = false) {
   const isName = value => value && !category(value) && !footer.test(value) && value !== '★';
 
   const kind = new URL(location.href).searchParams.get('kind');
-  const activeCategory = (kind === 'cases' ? 'weapon cases' : category((kind ?? '').replace(/[-_]/g, ' '))) ??
+  const routeCategories = { cases: 'weapon cases', souvenir: 'souvenir packages', souvenirs: 'souvenir packages',
+    capsules: 'sticker capsules', stickers: 'sticker capsules', patches: 'patch packs', music: 'music kits' };
+  const activeCategory = routeCategories[kind] ?? category((kind ?? '').replace(/[-_]/g, ' ')) ??
     [...document.querySelectorAll('[aria-selected="true"], [aria-pressed="true"], [aria-current="page"], [data-state="active"]')]
       .map(element => category(clean(element.innerText).replace(/\s+[\d,]+$/, ''))).find(Boolean) ?? '';
-  if (categoryOnly) return activeCategory;
-  return [...document.querySelectorAll('a[href]')].flatMap(anchor => {
+  const readCards = () => [...document.querySelectorAll('a[href]')].flatMap(anchor => {
     const url = new URL(anchor.href);
     if (url.origin !== location.origin || !/^\/cases\/(?:[^/]+\/)*[^/]+\/?$/.test(url.pathname)) return [];
 
@@ -81,8 +82,36 @@ function readCaseCatalog(categoryOnly = false) {
     const inferred = /\bcapsule\b/i.test(name) ? 'sticker capsules'
       : /\bsouvenir package\b/i.test(name) ? 'souvenir packages' : '';
     const kind = categoryIndex < 0 ? (activeCategory || inferred) : category(lines[categoryIndex]);
-    return name ? [{ name, kind, url: url.origin + url.pathname }] : [];
+    return name ? [{ anchor, entry: { name, kind, url: url.origin + url.pathname } }] : [];
   });
+  if (categoryOnly) {
+    if (activeCategory || !kind || kind === 'all') return activeCategory;
+    const kinds = new Set(readCards().map(({ entry }) => entry.kind));
+    return kinds.size === 1 ? [...kinds][0] : '';
+  }
+
+  const cards = readCards();
+  if (!cards.length) return [];
+  const positions = new Map();
+  for (let parent = cards[0].anchor.parentElement; parent; parent = parent.parentElement) {
+    positions.set(parent, parent.scrollTop);
+  }
+  const found = new Map();
+  let stable = 0;
+  try {
+    for (let step = 0; step < 45 && stable < 5; step++) {
+      const current = readCards();
+      const before = found.size;
+      for (const { entry } of current) found.set(entry.url, entry);
+      stable = found.size === before ? stable + 1 : 0;
+      current.at(-1)?.anchor.scrollIntoView({ block: 'end', behavior: 'instant' });
+      await new Promise(resolve => setTimeout(resolve, 300));
+    }
+    for (const { entry } of readCards()) found.set(entry.url, entry);
+    return [...found.values()];
+  } finally {
+    for (const [element, scrollTop] of positions) element.scrollTop = scrollTop;
+  }
 }
 
 function renderCatalog() {
@@ -151,7 +180,7 @@ document.querySelector('#load-catalog').addEventListener('click', async event =>
     catalog = [...merged.values()].sort((a, b) => a.name.localeCompare(b.name));
     await extension.storage.local.set({ catalog, catalogVersion });
     renderCatalog();
-    await syncCatalogCategory(tab).catch(() => {});
+    if (tab.id === activeTab?.id) await syncCatalogCategory(tab).catch(() => {});
   } catch {
     catalogStatus.textContent = messages.catalogError;
   } finally {
