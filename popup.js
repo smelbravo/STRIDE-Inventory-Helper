@@ -46,9 +46,10 @@ let autoError = false;
 let autoDetail = '';
 const picker = document.querySelector('#case-picker');
 const caseSearch = document.querySelector('#case-search');
+const caseCategory = document.querySelector('#case-category');
 const catalogStatus = document.querySelector('#catalog-status');
 let catalog = [];
-const catalogVersion = 2;
+const catalogVersion = 3;
 
 function readCaseCatalog() {
   const category = /^(?:weapon cases|souvenir packages|collections|agents|sticker capsules|patch packs|pins|music kits|graffiti)$/i;
@@ -66,18 +67,23 @@ function readCaseCatalog() {
     const headings = [...anchor.querySelectorAll('h2,h3,h4')].map(heading => clean(heading.innerText));
     const imageName = clean(anchor.querySelector('img[alt]')?.alt);
     const name = [cardName, ...headings, imageName, ...lines].find(isName);
-    return name ? [{ name, url: url.origin + url.pathname }] : [];
+    const kind = categoryIndex < 0 ? '' : lines[categoryIndex].toLowerCase();
+    return name ? [{ name, kind, url: url.origin + url.pathname }] : [];
   });
 }
 
 function renderCatalog() {
   const selected = picker.value;
+  const category = caseCategory.value;
   const query = caseSearch.value.trim().toLowerCase();
-  const matching = catalog.filter(entry => entry.name.toLowerCase().includes(query));
-  picker.replaceChildren(new Option(messages.chooseCase, ''), ...matching.map(entry => new Option(entry.name, entry.url)));
+  caseCategory.replaceChildren(new Option(messages.allCategories, ''), ...Object.entries(messages.caseCategories)
+    .map(([key, label]) => new Option(label, key)));
+  caseCategory.value = category;
+  const matching = catalog.filter(entry => (!category || entry.kind === category) && entry.name.toLowerCase().includes(query));
+  picker.replaceChildren(new Option(matching.length ? messages.chooseCatalogItem : messages.noCatalogItems, ''),
+    ...matching.map(entry => new Option(entry.name, entry.url)));
   if (matching.some(entry => entry.url === selected)) picker.value = selected;
   document.querySelector('#catalog-label').hidden = !catalog.length;
-  caseSearch.placeholder = messages.filter;
 }
 
 async function openStrideTab(url, keepOnTimeout = false) {
@@ -93,6 +99,7 @@ async function openStrideTab(url, keepOnTimeout = false) {
 }
 
 caseSearch.addEventListener('input', renderCatalog);
+caseCategory.addEventListener('change', renderCatalog);
 document.querySelector('#load-catalog').addEventListener('click', async event => {
   const button = event.currentTarget;
   button.disabled = true;

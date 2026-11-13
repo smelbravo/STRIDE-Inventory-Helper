@@ -1,5 +1,22 @@
 const translations = {
   en: {
+    categoryLabel: 'Category',
+    catalogSearch: 'Search catalog',
+    catalogItem: 'Item',
+    allCategories: 'All categories',
+    chooseCatalogItem: 'Choose an item',
+    noCatalogItems: 'No matching items',
+    caseCategories: {
+      'weapon cases': 'Weapon cases',
+      'souvenir packages': 'Souvenir packages',
+      collections: 'Collections',
+      agents: 'Agents',
+      'sticker capsules': 'Sticker capsules',
+      'patch packs': 'Patch packs',
+      pins: 'Pins',
+      'music kits': 'Music kits',
+      graffiti: 'Graffiti'
+    },
     autoSkip: 'Skip opening animation',
     showCaseTab: 'Go to case tab',
     autoBackgroundLoading: 'The case controls are still missing in the background tab. Go to that tab, wait for Open to appear, then reopen the extension and press Start.',
@@ -57,6 +74,23 @@ const translations = {
     csvFilename: 'stride-openings.csv'
   },
   'pt-PT': {
+    categoryLabel: 'Categoria',
+    catalogSearch: 'Pesquisar no catálogo',
+    catalogItem: 'Item',
+    allCategories: 'Todas as categorias',
+    chooseCatalogItem: 'Escolhe um item',
+    noCatalogItems: 'Nenhum item encontrado',
+    caseCategories: {
+      'weapon cases': 'Caixas de armas',
+      'souvenir packages': 'Pacotes de recordação',
+      collections: 'Coleções',
+      agents: 'Agentes',
+      'sticker capsules': 'Cápsulas de autocolantes',
+      'patch packs': 'Pacotes de emblemas',
+      pins: 'Pins',
+      'music kits': 'Kits de música',
+      graffiti: 'Graffiti'
+    },
     autoSkip: 'Saltar a animação de abertura',
     showCaseTab: 'Ir para o separador da caixa',
     autoBackgroundLoading: 'Os controlos da caixa ainda não apareceram em segundo plano. Vai para esse separador, espera que apareça o botão Open e carrega em Iniciar na extensão.',
