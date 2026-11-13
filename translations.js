@@ -1,5 +1,11 @@
 const translations = {
   en: {
+    copyDropIds: 'Copy selected item IDs',
+    noSelectedDrops: 'Select at least one drop.',
+    dropIdsCopied: 'Selected item IDs copied.',
+    dropIdsCopyError: 'Could not copy item IDs.',
+    dropRarity: 'Rarity',
+    allDropRarities: 'All rarities',
     catalogCategoryHint: 'Select this category on the STRIDE Cases page, then click Load case catalog again.',
     sessionDrops: 'Session drops',
     categoryLabel: 'Category',
@@ -76,6 +82,12 @@ const translations = {
     csvFilename: 'stride-openings.csv'
   },
   'pt-PT': {
+    copyDropIds: 'Copiar IDs dos itens selecionados',
+    noSelectedDrops: 'Seleciona pelo menos um drop.',
+    dropIdsCopied: 'IDs dos itens selecionados copiados.',
+    dropIdsCopyError: 'Não foi possível copiar os IDs.',
+    dropRarity: 'Raridade',
+    allDropRarities: 'Todas as raridades',
     catalogCategoryHint: 'Seleciona esta categoria na página Cases do STRIDE e volta a carregar o catálogo.',
     sessionDrops: 'Drops da sessão',
     categoryLabel: 'Categoria',

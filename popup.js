@@ -160,6 +160,25 @@ document.querySelector('#load-catalog').addEventListener('click', async event =>
   }
 });
 
+const sessionRarity = document.querySelector('#session-rarity');
+const selectedDrops = new Set();
+let renderedDrops = '';
+sessionRarity.addEventListener('change', renderAuto);
+document.querySelector('#copy-session-items').addEventListener('click', async () => {
+  const ids = (autoProgress?.drops ?? []).filter(drop => selectedDrops.has(drop.itemId)).map(drop => drop.itemId);
+  const status = document.querySelector('#session-selection-status');
+  if (!ids.length) {
+    status.textContent = messages.noSelectedDrops;
+    return;
+  }
+  try {
+    await navigator.clipboard.writeText(ids.join('\n'));
+    status.textContent = messages.dropIdsCopied;
+  } catch {
+    status.textContent = messages.dropIdsCopyError;
+  }
+});
+
 function renderAuto() {
   autoForm.querySelector('[type="submit"]').disabled = autoBusy || autoProgress?.state === 'running';
   autoStop.disabled = autoProgress?.state !== 'running';
@@ -167,16 +186,38 @@ function renderAuto() {
   autoStatus.textContent = autoProgress
     ? messages.autoStatus(autoProgress.done, autoProgress.total, messages.autoStates[autoProgress.state])
     : autoError ? [messages[autoError], autoDetail].filter(Boolean).join(' ') : '';
-  const drops = autoProgress?.drops ?? [];
+  const drops = (autoProgress?.drops ?? []).filter(drop => drop?.itemId);
   const details = document.querySelector('#session-drops');
   const list = document.querySelector('#session-drop-list');
   details.hidden = drops.length === 0;
-  if (list.childElementCount !== drops.length || drops.some((drop, index) => list.children[index]?.textContent !== drop)) {
+  if (drops.length && autoProgress.state === 'complete' && details.dataset.opened !== 'true') {
+    details.open = true;
+    details.dataset.opened = 'true';
+  }
+  if (!drops.length) delete details.dataset.opened;
+  const rarity = sessionRarity.value;
+  const signature = JSON.stringify([drops, rarity, messages.allDropRarities]);
+  if (renderedDrops !== signature) {
+    renderedDrops = signature;
+    const rarities = [...new Set(drops.map(drop => drop.rarity).filter(Boolean))].sort();
+    sessionRarity.replaceChildren(new Option(messages.allDropRarities, ''), ...rarities.map(value => new Option(value, value)));
+    sessionRarity.value = rarities.includes(rarity) ? rarity : '';
     const items = document.createDocumentFragment();
     for (const drop of drops) {
+      if (sessionRarity.value && drop.rarity !== sessionRarity.value) continue;
       const item = document.createElement('li');
-      item.textContent = drop;
-      if (/^(?:★\s*)?(?:StatTrak™\s*)?(?:[^|]*\bKnife\b|[^|]*\bBayonet\b|Karambit|Shadow Daggers|Talon|Kukri)\s*(?:\||$)/i.test(drop)) {
+      const label = document.createElement('label');
+      const checkbox = document.createElement('input');
+      checkbox.type = 'checkbox';
+      checkbox.checked = selectedDrops.has(drop.itemId);
+      checkbox.addEventListener('change', () => {
+        if (checkbox.checked) selectedDrops.add(drop.itemId);
+        else selectedDrops.delete(drop.itemId);
+      });
+      label.className = 'session-drop';
+      label.append(checkbox, [drop.name, drop.rarity, '#' + drop.itemId].filter(Boolean).join(' · '));
+      item.append(label);
+      if (/^(?:★\s*)?(?:StatTrak™\s*)?(?:[^|]*\bKnife\b|[^|]*\bBayonet\b|Karambit|Shadow Daggers|Talon|Kukri)\s*(?:\||$)/i.test(drop.name)) {
         item.className = 'session-knife';
       }
       items.append(item);

@@ -39,6 +39,15 @@ function readStrideResult(includeControls = false, caseName = '') {
   if (!id || !button) return null;
   let modal = container;
   while (modal && !/Item ID\s+\d+/i.test(modal.innerText)) modal = modal.parentElement;
+  const rarityPattern = /\b(Consumer Grade|Industrial Grade|Mil-Spec Grade|Restricted|Classified|Covert|Contraband|Extraordinary|High Grade|Remarkable|Exotic)\b/i;
+  const inspect = () => {
+    const title = modal?.querySelector('h1,h2,h3,[role="heading"]')?.innerText.trim();
+    const itemId = modal?.innerText.match(/Item ID\s+(\d+)/i)?.[1];
+    const rarity = modal?.innerText.match(rarityPattern)?.[1] ?? '';
+    return title && itemId ? { name: title, itemId, rarity } : null;
+  };
+  const thumbnails = [...(modal?.querySelectorAll('button, [role="button"]') ?? [])]
+    .filter(control => visible(control) && control.querySelector('img') && /^\d+(?:[, ]\d{3})*$/.test(text(control)));
   const drops = [...(modal?.querySelectorAll('button img[alt], [role="button"] img[alt]') ?? [])]
     .filter(image => visible(image) && image.alt.trim())
     .map(image => image.alt.trim());
@@ -46,7 +55,7 @@ function readStrideResult(includeControls = false, caseName = '') {
     const title = modal?.querySelector('h1,h2,h3,[role="heading"]')?.innerText.trim();
     if (title) drops.push(title);
   }
-  return { data: { ...data, itemId: id[1] }, button, drops };
+  return { data: { ...data, itemId: id[1] }, button, drops, thumbnails, inspect };
 }
 
 function prepareCase(selectBatch, expected, diagnose = false) {
@@ -224,11 +233,25 @@ async function runCaseOpening(command, quantity = 0, expected = null) {
         if (next.data.box !== first.data.box) throw new Error();
 
         const { box, count, cost } = current.data;
-        const record = { box, count, cost, value: next.data.value, drops: next.drops, createdAt: Date.now() };
+        const items = new Map();
+        const firstDrop = next.inspect();
+        if (firstDrop) items.set(firstDrop.itemId, firstDrop);
+        if (next.thumbnails.length === count) {
+          for (const thumbnail of next.thumbnails) {
+            if (location.href !== originalUrl || !thumbnail.isConnected) break;
+            thumbnail.click();
+            await new Promise(resolve => setTimeout(resolve, 80));
+            const drop = next.inspect();
+            if (drop) items.set(drop.itemId, drop);
+          }
+        }
+        const dropItems = [...items.values()];
+        const drops = dropItems.length === count ? dropItems.map(drop => drop.name) : next.drops;
+        const record = { box, count, cost, value: next.data.value, drops, dropItems, createdAt: Date.now() };
         await store.set({ ['opening:' + next.data.itemId]: record });
         session.progress.done += count;
-        session.progress.drops.push(...next.drops);
-        current = next;
+        session.progress.drops.push(...dropItems);
+        current = read() ?? next;
       }
       session.progress.state = session.progress.done === quantity ? 'complete' : 'stopped';
     } catch (error) {

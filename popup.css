@@ -40,6 +40,7 @@ label { display: grid; gap: 5px; color: var(--muted); }
 #catalog-label { margin-top: 12px; }
 #catalog-label > label + label { margin-top: 8px; }
 .session-knife { color: var(--accent); font-weight: 700; }
+.session-drop { display: flex; align-items: baseline; color: inherit; }
 input, button, select {
   min-width: 0;
   border: 1px solid var(--border);
