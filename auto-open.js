@@ -49,7 +49,7 @@ function readStrideResult(includeControls = false) {
   return { data: { ...data, itemId: id[1] }, button, drops };
 }
 
-function prepareCase(selectSingle = false, caseName = '') {
+function prepareCase(selectSingle = false, caseName = '', diagnose = false) {
   const normalize = value => value.trim().replace(/\s+/g, ' ');
   const headings = [...document.querySelectorAll('h1,h2,h3,[role="heading"]')];
   const heading = caseName
@@ -61,11 +61,15 @@ function prepareCase(selectSingle = false, caseName = '') {
   if (selectSingle && single) single.click();
   const price = /^OPEN\s*[^\p{L}\d]*(\d+(?:[, ]\d{3})*)$/iu;
   const open = buttons.find(button => labels(button).some(label => price.test(label)));
-  if (!heading || !single || !open || open.matches(':disabled, [aria-disabled="true"]')) return null;
+  const failure = !heading ? 'autoCaseTitle' : !single ? 'autoQuantityControl'
+    : !open ? 'autoOpenControl' : open.matches(':disabled, [aria-disabled="true"]') ? 'autoOpenDisabled' : null;
+  if (failure) return diagnose ? { failure } : null;
   const cost = Number(labels(open).find(label => price.test(label)).match(price)[1].replace(/[, ]/g, ''));
   const unitPrices = [...normalize(document.body.innerText).matchAll(/(?<!\d)(\d+(?:[, ]\d{3})*)\s*per case\b/gi)]
     .map(match => Number(match[1].replace(/[, ]/g, '')));
-  if (!unitPrices.includes(cost) || !Number.isSafeInteger(cost) || cost <= 0) return null;
+  if (!unitPrices.includes(cost) || !Number.isSafeInteger(cost) || cost <= 0) {
+    return diagnose ? { failure: 'autoPriceMismatch' } : null;
+  }
   return { box: heading.innerText.trim(), count: 1, cost, button: open };
 }
 
@@ -78,6 +82,7 @@ async function runCaseOpening(command, quantity = 0, expected = null) {
   }
 
   const read = () => readStrideResult(true);
+  if (command === 'diagnose') return prepareCase(false, expected?.box, true)?.failure ?? null;
   if (command === 'prepare') {
     prepareCase(true);
     return null;

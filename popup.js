@@ -174,6 +174,11 @@ autoForm.addEventListener('submit', async event => {
         if (preview) break;
         await new Promise(resolve => setTimeout(resolve, 250));
       } while (Date.now() < deadline);
+      if (!preview) {
+        failure = await autoCommand('diagnose', 0, { box: selected.name }) ?? 'autoCatalogError';
+        openedTab = undefined;
+        throw new Error();
+      }
     } else {
       preview = await autoCommand('preview');
     }

@@ -1,5 +1,10 @@
 const translations = {
   en: {
+    autoCaseTitle: 'The case title did not match the catalog. Check the STRIDE tab left open.',
+    autoQuantityControl: 'Could not find the ×1 control. Check the STRIDE tab left open.',
+    autoOpenControl: 'Could not read the price on the Open button. Check the STRIDE tab left open.',
+    autoOpenDisabled: 'STRIDE disabled the Open button. Check the STRIDE tab left open.',
+    autoPriceMismatch: 'The Open price could not be confirmed for one case. Check the STRIDE tab left open.',
     autoPermission: 'Allow access to stridecsgo.net in the extension permissions to open from the catalog.',
     autoTabError: 'Could not connect to the STRIDE case tab. Check site access in the extension permissions.',
     loadCatalog: 'Load case catalog',
@@ -48,6 +53,11 @@ const translations = {
     csvFilename: 'stride-openings.csv'
   },
   'pt-PT': {
+    autoCaseTitle: 'O título da caixa não corresponde ao catálogo. Verifica o separador do STRIDE que ficou aberto.',
+    autoQuantityControl: 'Não foi possível encontrar o botão ×1. Verifica o separador do STRIDE que ficou aberto.',
+    autoOpenControl: 'Não foi possível ler o preço no botão Open. Verifica o separador do STRIDE que ficou aberto.',
+    autoOpenDisabled: 'O botão Open está desativado no STRIDE. Verifica o separador que ficou aberto.',
+    autoPriceMismatch: 'Não foi possível confirmar o preço de uma caixa. Verifica o separador do STRIDE que ficou aberto.',
     autoPermission: 'Autoriza o acesso a stridecsgo.net nas permissões da extensão para abrir pelo catálogo.',
     autoTabError: 'Não foi possível comunicar com o separador da caixa. Verifica o acesso ao site nas permissões da extensão.',
     loadCatalog: 'Carregar catálogo',
