@@ -1,5 +1,6 @@
 const translations = {
   en: {
+    sessionDrops: 'Session drops',
     categoryLabel: 'Category',
     catalogSearch: 'Search catalog',
     catalogItem: 'Item',
@@ -74,6 +75,7 @@ const translations = {
     csvFilename: 'stride-openings.csv'
   },
   'pt-PT': {
+    sessionDrops: 'Drops da sessão',
     categoryLabel: 'Categoria',
     catalogSearch: 'Pesquisar no catálogo',
     catalogItem: 'Item',

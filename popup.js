@@ -147,6 +147,22 @@ function renderAuto() {
   autoStatus.textContent = autoProgress
     ? messages.autoStatus(autoProgress.done, autoProgress.total, messages.autoStates[autoProgress.state])
     : autoError ? [messages[autoError], autoDetail].filter(Boolean).join(' ') : '';
+  const drops = autoProgress?.drops ?? [];
+  const details = document.querySelector('#session-drops');
+  const list = document.querySelector('#session-drop-list');
+  details.hidden = drops.length === 0;
+  if (list.childElementCount !== drops.length || drops.some((drop, index) => list.children[index]?.textContent !== drop)) {
+    const items = document.createDocumentFragment();
+    for (const drop of drops) {
+      const item = document.createElement('li');
+      item.textContent = drop;
+      if (/^(?:★\s*)?(?:StatTrak™\s*)?(?:[^|]*\bKnife\b|[^|]*\bBayonet\b|Karambit|Shadow Daggers|Talon|Kukri)\s*(?:\||$)/i.test(drop)) {
+        item.className = 'session-knife';
+      }
+      items.append(item);
+    }
+    list.replaceChildren(items);
+  }
 }
 
 async function autoCommand(command, ...args) {

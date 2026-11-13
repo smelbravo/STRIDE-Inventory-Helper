@@ -1,0 +1,8 @@
+.stride-helper-skin-details {
+  display: block;
+  padding: 4px 8px;
+  background: #242322;
+  color: #ffdb8b;
+  font: 600 11px/1.4 system-ui, sans-serif;
+  overflow-wrap: anywhere;
+}

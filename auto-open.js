@@ -184,7 +184,7 @@ async function runCaseOpening(command, quantity = 0, expected = null) {
       !Number.isSafeInteger(quantity) || quantity < 1 || quantity > 1000000 ||
       quantity % first.data.count !== 0) return null;
 
-  const session = { stop: false, progress: { done: 0, total: quantity, state: 'running' } };
+  const session = { stop: false, progress: { done: 0, total: quantity, state: 'running', drops: [] } };
   globalThis[key] = session;
   const originalUrl = location.href;
   const store = (globalThis.browser ?? globalThis.chrome).storage.local;
@@ -227,6 +227,7 @@ async function runCaseOpening(command, quantity = 0, expected = null) {
         const record = { box, count, cost, value: next.data.value, drops: next.drops, createdAt: Date.now() };
         await store.set({ ['opening:' + next.data.itemId]: record });
         session.progress.done += count;
+        session.progress.drops.push(...next.drops);
         current = next;
       }
       session.progress.state = session.progress.done === quantity ? 'complete' : 'stopped';
