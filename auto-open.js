@@ -92,8 +92,9 @@ function prepareCase(selectSingle, expected, diagnose = false) {
       : '';
     return diagnose ? { failure, detail } : null;
   }
-  const unitPrices = [...normalize(document.body.innerText).matchAll(/(?<!\d)(\d+(?:[, .]\d{3})*)\s*per case\b/gi)]
-    .map(match => Number(match[1].replace(/[, .]/g, '')));
+  const unitPrice = expected.unitPrice;
+  if (!Number.isSafeInteger(unitPrice) || unitPrice <= 0) return null;
+  const unitPrices = [unitPrice];
   if (selectSingle && !unitPrices.includes(cost)) {
     const quantityPattern = /^(?:[×✕✖x]\s*)?([1235])$/i;
     const group = open.previousElementSibling;
@@ -134,6 +135,23 @@ async function runCaseOpening(command, quantity = 0, expected = null) {
     if (globalThis[key]) globalThis[key].stop = true;
     return globalThis[key]?.progress ?? null;
   }
+  if (command === 'caseDetails') {
+    const id = location.pathname.match(/^\/cases\/(\d+)\/?$/)?.[1];
+    if (location.origin !== 'https://stridecsgo.net' || !id || expected?.url !== location.origin + location.pathname) {
+      throw new Error('The case address does not match the selected case.');
+    }
+    const response = await fetch('https://api.stridecsgo.net/v2/cases/' + id, {
+      credentials: 'include', redirect: 'error', headers: { Accept: 'application/json' },
+      signal: AbortSignal.timeout(10000)
+    });
+    if (!response.ok) throw new Error('Case details returned HTTP ' + response.status + '.');
+    const data = await response.json();
+    if (String(data.id) !== id || data.openable !== true || !data.openCounts?.includes(1) ||
+        !Number.isSafeInteger(data.price) || data.price <= 0) {
+      throw new Error('The API did not confirm a price for opening one case.');
+    }
+    return { ...expected, unitPrice: data.price };
+  }
 
   const read = () => readStrideResult(true, expected?.initial ? expected.box : '');
   if (command === 'diagnose') {
@@ -146,7 +164,7 @@ async function runCaseOpening(command, quantity = 0, expected = null) {
   }
   const initial = expected?.initial || command === 'previewInitial' ? prepareCase(false, expected) : null;
   const first = initial
-    ? { data: { box: initial.box, url: initial.url, count: 1, cost: initial.cost, initial: true }, button: initial.button }
+    ? { data: { box: initial.box, url: initial.url, count: 1, cost: initial.cost, initial: true, unitPrice: expected.unitPrice }, button: initial.button }
     : read();
   if (command === 'previewInitial') return initial ? first.data : null;
   if (command === 'preview') return first?.data ?? null;

@@ -178,15 +178,16 @@ autoForm.addEventListener('submit', async event => {
     failure = 'autoTabError';
     let preview;
     if (selected) {
+      const details = await autoCommand('caseDetails', 0, { box: selected.name, url: selected.url });
       const deadline = Date.now() + 8000;
       do {
-        await autoCommand('prepare', 0, { box: selected.name, url: selected.url });
-        preview = await autoCommand('previewInitial', 0, { box: selected.name, url: selected.url });
+        await autoCommand('prepare', 0, details);
+        preview = await autoCommand('previewInitial', 0, details);
         if (preview) break;
         await new Promise(resolve => setTimeout(resolve, 250));
       } while (Date.now() < deadline);
       if (!preview) {
-        const diagnosis = await autoCommand('diagnose', 0, { box: selected.name, url: selected.url });
+        const diagnosis = await autoCommand('diagnose', 0, details);
         failure = diagnosis?.failure ?? 'autoCatalogError';
         autoDetail = diagnosis?.detail ?? '';
         openedTab = undefined;
