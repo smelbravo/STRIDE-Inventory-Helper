@@ -126,7 +126,7 @@ function renderAuto() {
   autoStop.disabled = autoProgress?.state !== 'running';
   autoStatus.textContent = autoProgress
     ? messages.autoStatus(autoProgress.done, autoProgress.total, messages.autoStates[autoProgress.state])
-    : autoError ? (picker.value ? messages.autoCatalogError : messages.autoSetup) : '';
+    : autoError ? messages[autoError] : '';
 }
 
 async function autoCommand(command, ...args) {
@@ -147,6 +147,11 @@ autoForm.addEventListener('submit', async event => {
     const tab = selected ? await openStrideTab(selected.url)
       : (await extension.tabs.query({ active: true, currentWindow: true }))[0];
     if (selected) openedTab = tab.id;
+    if (/^https:\/\/stridecsgo\.net\/login(?:[/?#]|$)/.test(tab?.url ?? '')) {
+      autoProgress = null;
+      autoError = 'autoLogin';
+      return;
+    }
     if (!tab?.url || !/^https:\/\/stridecsgo\.net\/cases(?:\/|[?#]|$)/.test(tab.url)) throw new Error();
     autoTab = tab.id;
     await extension.scripting.executeScript({ target: { tabId: autoTab }, files: ['auto-open.js'] });
@@ -171,7 +176,7 @@ autoForm.addEventListener('submit', async event => {
     await extension.storage.local.set({ openingTab: autoTab });
     autoError = false;
   } catch {
-    autoError = true;
+    autoError = picker.value ? 'autoCatalogError' : 'autoSetup';
     autoProgress = null;
   } finally {
     if (openedTab !== undefined) await extension.tabs.remove(openedTab).catch(() => {});
@@ -185,7 +190,7 @@ autoStop.addEventListener('click', async () => {
     await autoCommand('stop');
   } catch {
     autoProgress = null;
-    autoError = true;
+    autoError = 'autoSetup';
     renderAuto();
   }
 });

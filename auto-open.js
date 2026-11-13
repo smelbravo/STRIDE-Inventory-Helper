@@ -50,14 +50,16 @@ function readStrideResult(includeControls = false) {
 }
 
 function prepareCase(selectSingle = false) {
-  const heading = document.querySelector('h1');
-  const buttons = [...document.querySelectorAll('button')].filter(button => button.checkVisibility());
-  const single = buttons.find(button => /^[×x]\s*1$/i.test(button.innerText.trim()));
+  const heading = document.querySelector('h1, main h2, main [role="heading"]');
+  const buttons = [...document.querySelectorAll('button, [role="button"]')].filter(button => button.checkVisibility());
+  const label = button => button.innerText.trim().replace(/\s+/g, ' ');
+  const single = buttons.find(button => /^[×x]\s*1$/i.test(label(button)));
   if (selectSingle && single) single.click();
-  const open = buttons.find(button => /^OPEN\s*[^\d]*\d[\d, ]*$/i.test(button.innerText.trim().replace(/\s+/g, ' ')));
-  if (!heading || !single || !open || open.disabled) return null;
-  const cost = Number(open.innerText.trim().replace(/\s+/g, ' ').match(/\d[\d, ]*$/)[0].replace(/[, ]/g, ''));
-  const unitPrice = document.body.innerText.match(/\b(\d+(?:[, ]\d{3})*)\s+per case\b/i);
+  const price = /^OPEN\s*[^\p{L}\d]*(\d+(?:[, ]\d{3})*)$/iu;
+  const open = buttons.find(button => price.test(label(button)));
+  if (!heading || !single || !open || open.matches(':disabled, [aria-disabled="true"]')) return null;
+  const cost = Number(label(open).match(price)[1].replace(/[, ]/g, ''));
+  const unitPrice = document.body.innerText.replace(/\s+/g, ' ').match(/\b(\d+(?:[, ]\d{3})*)\s*per case\b/i);
   if (!unitPrice || Number(unitPrice[1].replace(/[, ]/g, '')) !== cost || !Number.isSafeInteger(cost) || cost <= 0) return null;
   return { box: heading.innerText.trim(), count: 1, cost, button: open };
 }
