@@ -9,7 +9,7 @@
   --panel: #1b1c20;
 }
 * { box-sizing: border-box; }
-body { margin: 0; width: min(390px, 100vw); }
+body { margin: 0; width: 390px; }
 main { padding: 14px; }
 .brand {
   display: flex;

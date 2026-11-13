@@ -394,11 +394,12 @@ async function initialize() {
   try {
     const stored = await extension.storage.local.get(['language', 'catalog', 'catalogVersion']);
     catalog = stored.catalogVersion === catalogVersion ? (stored.catalog ?? []) : [];
-    await refreshRecords();
     applyLanguage(stored.language ?? defaultLanguage);
+    languageSelect.disabled = false;
+    await refreshRecords();
+    render();
     save.disabled = false;
     importButton.disabled = false;
-    languageSelect.disabled = false;
   } catch {
     applyLanguage(defaultLanguage);
     setStatus('loadError');
