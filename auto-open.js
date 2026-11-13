@@ -208,6 +208,19 @@ async function runCaseOpening(command, quantity = 0, expected = null) {
     session.requestedSales ??= new Set();
     session.requestedSales.add(recorded.itemId);
     sellButton.click();
+    // STRIDE can replace the label on the same button with an inline confirmation.
+    const confirmationDeadline = Date.now() + 1500;
+    while (Date.now() < confirmationDeadline && sellButton.isConnected) {
+      if (location.href !== session.url || globalThis[key] !== session ||
+          result.inspect()?.itemId !== recorded.itemId) break;
+      if (/^Are you sure\?$/i.test(sellButton.innerText.trim()) &&
+          !sellButton.disabled && sellButton.getAttribute('aria-disabled') !== 'true' &&
+          sellButton.checkVisibility({ visibilityProperty: true })) {
+        sellButton.click();
+        break;
+      }
+      await new Promise(resolve => setTimeout(resolve, 50));
+    }
     return true;
   }
   if (command === 'stop') {
