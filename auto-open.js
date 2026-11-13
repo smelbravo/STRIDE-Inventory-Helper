@@ -4,7 +4,7 @@ function readStrideResult(includeControls = false, caseName = '') {
   const text = element => element.innerText.trim().replace(/\s+/g, ' ');
   const buttons = [...document.querySelectorAll('button, [role="button"]')].filter(visible);
   const sell = /^Sell(?: all)?\s+(\d+(?:[, ]\d{3})*)$/i;
-  const repeat = /^Open\s+(\d+)\s+more\D+(\d+(?:[, ]\d{3})*)$/i;
+  const repeat = /^Open\s+(?:another|(\d+)\s+more)\D+(\d+(?:[, ]\d{3})*)$/i;
   const all = buttons.filter(button => /^Sell all\s/i.test(text(button)) && sell.test(text(button)));
   const sellButtons = all.length ? all : buttons.filter(button => sell.test(text(button)));
   if (sellButtons.length !== 1) return null;
@@ -24,7 +24,7 @@ function readStrideResult(includeControls = false, caseName = '') {
   const headings = [...document.querySelectorAll('h1')].filter(visible);
   if (!repeatMatch || (!caseName && headings.length !== 1)) return null;
   const box = caseName || text(headings[0]);
-  const count = Number(repeatMatch[1]);
+  const count = Number(repeatMatch[1] ?? 1);
   if (!all.length && count !== 1) return null;
   const cost = Number(repeatMatch[2].replace(/[, ]/g, ''));
   const value = Number(text(sellButton).match(sell)[1].replace(/[, ]/g, ''));
