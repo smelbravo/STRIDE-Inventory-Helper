@@ -64,6 +64,13 @@ function prepareCase(selectSingle, expected, diagnose = false) {
   };
   const price = /^OPEN\s*(?:[^\p{L}\d]*|[^\p{L}\d]*coins?\s*)(\d+(?:[, .]\d{3})*)(?:\s*coins?)?$/iu;
   const pricedButtons = buttons.flatMap(button => {
+    const amount = button.querySelector('span.tabular-nums > img[src="/images/coin-engraved.svg"]')?.parentElement;
+    if (amount && normalize(amount.parentElement.firstChild?.textContent).toLowerCase() === 'open') {
+      const value = normalize(amount.textContent);
+      if (/^\d+(?:[, .]\d{3})*$/.test(value)) {
+        return [{ button, cost: Number(value.replace(/[, .]/g, '')) }];
+      }
+    }
     const match = labels(button).map(label => label.match(price)).find(Boolean);
     return match ? [{ button, cost: Number(match[1].replace(/[, .]/g, '')) }] : [];
   });
@@ -80,6 +87,15 @@ function prepareCase(selectSingle, expected, diagnose = false) {
     .map(match => Number(match[1].replace(/[, .]/g, '')));
   if (selectSingle && !unitPrices.includes(cost)) {
     const quantityPattern = /^(?:[×✕✖x]\s*)?([1235])$/i;
+    const group = open.previousElementSibling;
+    if (group?.matches('[role="radiogroup"][aria-label="How many to open"]')) {
+      const single = [...group.querySelectorAll('button, [role="radio"]')]
+        .find(control => control.checkVisibility() && labels(control).some(label => label.match(quantityPattern)?.[1] === '1'));
+      if (single) {
+        single.click();
+        return null;
+      }
+    }
     for (let row = open.parentElement; row && row !== document.body; row = row.parentElement) {
       const quantities = new Map();
       for (const element of row.querySelectorAll('button, [role], [tabindex], span, div, label')) {
