@@ -186,13 +186,25 @@ async function runCaseOpening(command, quantity = 0, expected = null) {
     if (!session || session.progress.state === 'running' || location.href !== session.url) return false;
     const recorded = session.progress.drops.find(drop => drop.itemId === expected?.itemId);
     if (!recorded || recorded.quickSell == null || recorded.quickSell !== expected.quickSell) return false;
+    if (session.requestedSales?.has(recorded.itemId)) return true;
     const result = readStrideResult(true, recorded.name);
-    const current = result?.inspect();
-    if (current?.itemId !== recorded.itemId || current.quickSell !== recorded.quickSell) return false;
+    let current = result?.inspect();
+    if (result && current?.itemId !== recorded.itemId) {
+      for (const thumbnail of result.thumbnails) {
+        if (!thumbnail.isConnected || location.href !== session.url) break;
+        thumbnail.click();
+        await new Promise(resolve => setTimeout(resolve, 100));
+        current = result.inspect();
+        if (current?.itemId === recorded.itemId) break;
+      }
+    }
+    if (location.href !== session.url || session.progress.state === 'running' ||
+        current?.itemId !== recorded.itemId || current.quickSell !== recorded.quickSell) return false;
     const sellButton = [...result.modal.querySelectorAll('button')].find(button =>
       button.checkVisibility({ visibilityProperty: true }) && !button.disabled &&
       /^Sell\s+\d+(?:[, ]\d{3})*$/i.test(button.innerText.trim()));
-    if (!sellButton || session.requestedSales?.has(recorded.itemId)) return false;
+    if (!sellButton) return false;
+    if (session.requestedSales?.has(recorded.itemId)) return true;
     session.requestedSales ??= new Set();
     session.requestedSales.add(recorded.itemId);
     sellButton.click();

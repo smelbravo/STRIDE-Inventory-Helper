@@ -282,6 +282,42 @@ openDropInventory.addEventListener('click', async () => {
   }
 });
 
+async function sellFromInventory(itemId, price) {
+  if (location.origin !== 'https://stridecsgo.net' || !/^\/inventory\/?$/.test(location.pathname) || !/^\d+$/.test(itemId)) return false;
+  const controls = 'button, [role="button"]';
+  const visible = node => node.checkVisibility({ visibilityProperty: true });
+  const deadline = Date.now() + 5000;
+  while (Date.now() < deadline) {
+    const cards = [...document.querySelectorAll(`[data-item-id="${itemId}"]`)].filter(visible);
+    const card = cards.length === 1 ? cards[0] : null;
+    const control = card?.closest(controls) ?? (card?.querySelectorAll(controls).length === 1 ? card.querySelector(controls) : null);
+    if (control && !control.matches(':disabled, [aria-disabled="true"]')) {
+      control.click();
+      break;
+    }
+    await new Promise(resolve => setTimeout(resolve, 200));
+  }
+  while (Date.now() < deadline) {
+    if (!/^\/inventory\/?$/.test(location.pathname)) return false;
+    const dialogs = [...document.querySelectorAll('dialog, [role="dialog"]')].filter(visible);
+    const dialog = dialogs.length === 1 ? dialogs[0] : null;
+    const id = dialog?.innerText.match(/\bItem ID\s*:?\s*(\d+)\b/i)?.[1];
+    if (id === itemId) {
+      const buttons = [...dialog.querySelectorAll(controls)].filter(button => {
+        const amount = button.innerText.trim().match(/^(?:Quick Sell|Sell)\s+(\d+(?:[,\s]\d{3})*)$/i)?.[1];
+        return amount && Number(amount.replace(/[,\s]/g, '')) === price && visible(button) &&
+          !button.matches(':disabled, [aria-disabled="true"]');
+      });
+      if (buttons.length === 1) {
+        buttons[0].click();
+        return true;
+      }
+    }
+    await new Promise(resolve => setTimeout(resolve, 200));
+  }
+  return false;
+}
+
 sellSessionItem.addEventListener('click', async () => {
   const drop = selectedSellableDrop();
   if (!drop || sellingDrop) return;
@@ -295,7 +331,14 @@ sellSessionItem.addEventListener('click', async () => {
   sellingDrop = true;
   renderAuto();
   try {
-    const submitted = await autoCommand('sellVisibleDrop', 0, { itemId: drop.itemId, quickSell: drop.quickSell });
+    let submitted = await autoCommand('sellVisibleDrop', 0, { itemId: drop.itemId, quickSell: drop.quickSell });
+    if (submitted === false) {
+      const tab = await openStrideTab('https://stridecsgo.net/inventory');
+      const [{ result }] = await extension.scripting.executeScript({
+        target: { tabId: tab.id }, func: sellFromInventory, args: [drop.itemId, drop.quickSell]
+      });
+      submitted = result;
+    }
     if (submitted) requestedSales.add(drop.itemId);
     status.textContent = submitted ? messages.dropSaleSubmitted : messages.dropSaleUnavailable;
   } catch {
@@ -342,7 +385,7 @@ function renderAuto() {
   }
   sellSessionItem.disabled = sellingDrop || !sellable;
   openDropInventory.disabled = sellingDrop || !selectedSessionDrop();
-  autoForm.querySelector('[type="submit"]').disabled = autoBusy || autoProgress?.state === 'running';
+  autoForm.querySelector('[type="submit"]').disabled = sellingDrop || autoBusy || autoProgress?.state === 'running';
   autoStop.disabled = autoProgress?.state !== 'running';
   showCaseTab.hidden = autoBusy || loadingCaseTab === undefined;
   autoStatus.textContent = autoProgress
