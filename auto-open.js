@@ -44,7 +44,14 @@ function readStrideResult(includeControls = false, caseName = '') {
     const title = modal?.querySelector('h1,h2,h3,[role="heading"]')?.innerText.trim();
     const itemId = modal?.innerText.match(/Item ID\s+(\d+)/i)?.[1];
     const rarity = modal?.innerText.match(rarityPattern)?.[1] ?? '';
-    return title && itemId ? { name: title, itemId, rarity } : null;
+    const details = modal?.innerText ?? '';
+    const float = details.match(/\bFloat\s+([01]\.\d+|[01])\b/i)?.[1];
+    const seed = details.match(/\bPattern Seed\s+(\d+)\b/i)?.[1];
+    const sellValue = details.match(/\bSell\s+(\d+(?:[, ]\d{3})*)\b/i)?.[1];
+    return title && itemId ? {
+      name: title, itemId, rarity, float, seed,
+      quickSell: sellValue === undefined ? null : Number(sellValue.replace(/[, ]/g, ''))
+    } : null;
   };
   const thumbnails = [...(modal?.querySelectorAll('button, [role="button"]') ?? [])]
     .filter(control => visible(control) && control.querySelector('img') && /^\d+(?:[, ]\d{3})*$/.test(text(control)));

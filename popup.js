@@ -164,20 +164,41 @@ const sessionRarity = document.querySelector('#session-rarity');
 const selectedDrops = new Set();
 let renderedDrops = '';
 sessionRarity.addEventListener('change', renderAuto);
+function dropSummary(drop) {
+  return [drop.name, drop.rarity, '#' + drop.itemId,
+    drop.float == null ? '' : 'Float ' + drop.float,
+    drop.seed == null ? '' : messages.dropSeed + ' ' + drop.seed,
+    drop.quickSell == null ? '' : 'Quick Sell ' + number.format(drop.quickSell)
+  ].filter(Boolean).join(' · ');
+}
+
+document.querySelector('#select-visible-drops').addEventListener('click', () => {
+  for (const drop of autoProgress?.drops ?? []) {
+    if (drop.itemId && (!sessionRarity.value || drop.rarity === sessionRarity.value)) selectedDrops.add(drop.itemId);
+  }
+  renderedDrops = '';
+  renderAuto();
+});
+document.querySelector('#copy-all-drops').addEventListener('click', () =>
+  copyDrops((autoProgress?.drops ?? []).filter(drop => drop.itemId).map(dropSummary)));
 document.querySelector('#copy-session-items').addEventListener('click', async () => {
   const ids = (autoProgress?.drops ?? []).filter(drop => selectedDrops.has(drop.itemId)).map(drop => drop.itemId);
+  await copyDrops(ids);
+});
+
+async function copyDrops(lines) {
   const status = document.querySelector('#session-selection-status');
-  if (!ids.length) {
+  if (!lines.length) {
     status.textContent = messages.noSelectedDrops;
     return;
   }
   try {
-    await navigator.clipboard.writeText(ids.join('\n'));
-    status.textContent = messages.dropIdsCopied;
+    await navigator.clipboard.writeText(lines.join('\n'));
+    status.textContent = messages.dropDetailsCopied;
   } catch {
     status.textContent = messages.dropIdsCopyError;
   }
-});
+}
 
 function renderAuto() {
   autoForm.querySelector('[type="submit"]').disabled = autoBusy || autoProgress?.state === 'running';
@@ -215,7 +236,7 @@ function renderAuto() {
         else selectedDrops.delete(drop.itemId);
       });
       label.className = 'session-drop';
-      label.append(checkbox, [drop.name, drop.rarity, '#' + drop.itemId].filter(Boolean).join(' · '));
+      label.append(checkbox, dropSummary(drop));
       item.append(label);
       if (/^(?:★\s*)?(?:StatTrak™\s*)?(?:[^|]*\bKnife\b|[^|]*\bBayonet\b|Karambit|Shadow Daggers|Talon|Kukri)\s*(?:\||$)/i.test(drop.name)) {
         item.className = 'session-knife';

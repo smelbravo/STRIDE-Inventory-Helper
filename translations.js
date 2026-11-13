@@ -1,5 +1,9 @@
 const translations = {
   en: {
+    selectVisibleDrops: 'Select visible',
+    copyAllDrops: 'Copy all drops',
+    dropSeed: 'Pattern seed',
+    dropDetailsCopied: 'Copied to clipboard.',
     copyDropIds: 'Copy selected item IDs',
     noSelectedDrops: 'Select at least one drop.',
     dropIdsCopied: 'Selected item IDs copied.',
@@ -82,6 +86,10 @@ const translations = {
     csvFilename: 'stride-openings.csv'
   },
   'pt-PT': {
+    selectVisibleDrops: 'Selecionar visíveis',
+    copyAllDrops: 'Copiar todos os drops',
+    dropSeed: 'Seed do padrão',
+    dropDetailsCopied: 'Copiado para a área de transferência.',
     copyDropIds: 'Copiar IDs dos itens selecionados',
     noSelectedDrops: 'Seleciona pelo menos um drop.',
     dropIdsCopied: 'IDs dos itens selecionados copiados.',
