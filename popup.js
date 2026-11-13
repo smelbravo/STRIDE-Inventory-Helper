@@ -148,7 +148,8 @@ autoForm.addEventListener('submit', async event => {
     if (selected) {
       failure = 'autoPermission';
       const access = { origins: ['https://stridecsgo.net/*'] };
-      const granted = await extension.permissions.contains(access) || await extension.permissions.request(access);
+      // Firefox requires the request to run directly in the submit gesture.
+      const granted = await extension.permissions.request(access);
       if (!granted) throw new Error();
       failure = 'autoTabError';
     }
