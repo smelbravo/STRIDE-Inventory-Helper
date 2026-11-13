@@ -90,7 +90,9 @@ function prepareCase(selectSingle, expected, diagnose = false) {
     const detail = failure === 'autoOpenControl'
       ? `Groups: ${groupButtons.length}. Price matches: ${pricedButtons.length}. ${openLabels.map(label => label.slice(0, 80)).join(' / ')}`
       : '';
-    return diagnose ? { failure, detail } : null;
+    const waitingForControls = failure === 'autoOpenControl' && document.hidden &&
+      groupButtons.length === 0 && openLabels.length === 0;
+    return diagnose ? { failure: waitingForControls ? 'autoBackgroundLoading' : failure, detail } : null;
   }
   const unitPrice = expected.unitPrice;
   if (!Number.isSafeInteger(unitPrice) || unitPrice <= 0) return null;

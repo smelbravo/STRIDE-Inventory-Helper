@@ -28,6 +28,17 @@ let records = [];
 const autoForm = document.querySelector('#auto-open');
 const autoStatus = document.querySelector('#auto-status');
 const autoStop = document.querySelector('#auto-stop');
+const showCaseTab = document.querySelector('#show-case-tab');
+let loadingCaseTab;
+
+showCaseTab.addEventListener('click', async () => {
+  try {
+    await extension.tabs.update(loadingCaseTab, { active: true });
+  } catch {
+    loadingCaseTab = undefined;
+    renderAuto();
+  }
+});
 let autoTab;
 let autoBusy = false;
 let autoProgress;
@@ -125,6 +136,7 @@ document.querySelector('#load-catalog').addEventListener('click', async event =>
 function renderAuto() {
   autoForm.querySelector('[type="submit"]').disabled = autoBusy || autoProgress?.state === 'running';
   autoStop.disabled = autoProgress?.state !== 'running';
+  showCaseTab.hidden = autoBusy || loadingCaseTab === undefined;
   autoStatus.textContent = autoProgress
     ? messages.autoStatus(autoProgress.done, autoProgress.total, messages.autoStates[autoProgress.state])
     : autoError ? [messages[autoError], autoDetail].filter(Boolean).join(' ') : '';
@@ -147,6 +159,7 @@ autoForm.addEventListener('submit', async event => {
   event.preventDefault();
   autoBusy = true;
   autoDetail = '';
+  loadingCaseTab = undefined;
   renderAuto();
   let openedTab;
   let failure = 'autoSetup';
@@ -193,6 +206,10 @@ autoForm.addEventListener('submit', async event => {
         const diagnosis = await autoCommand('diagnose', 0, details);
         failure = diagnosis?.failure ?? 'autoCatalogError';
         autoDetail = diagnosis?.detail ?? '';
+        if (failure === 'autoBackgroundLoading') {
+          loadingCaseTab = tab.id;
+          autoDetail = '';
+        }
         openedTab = undefined;
         throw new Error();
       }
