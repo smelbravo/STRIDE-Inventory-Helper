@@ -223,6 +223,7 @@ document.querySelector('#load-catalog').addEventListener('click', async event =>
 
 const sessionRarity = document.querySelector('#session-rarity');
 const sellSessionItem = document.querySelector('#sell-session-item');
+const openDropInventory = document.querySelector('#open-drop-inventory');
 const selectedDrops = new Set();
 const requestedSales = new Set();
 let sellingDrop = false;
@@ -253,11 +254,33 @@ function dropSummary(drop) {
   ].filter(Boolean).join(' · ');
 }
 
-function selectedSellableDrop() {
-  if (selectedDrops.size !== 1 || autoBusy || autoProgress?.state === 'running') return null;
-  return autoProgress?.drops?.find(drop => selectedDrops.has(drop.itemId) && drop.quickSell != null &&
-    !requestedSales.has(drop.itemId)) ?? null;
+function selectedSessionDrop() {
+  if (selectedDrops.size !== 1) return null;
+  return autoProgress?.drops?.find(drop => selectedDrops.has(drop.itemId)) ?? null;
 }
+
+function selectedSellableDrop() {
+  if (autoBusy || autoProgress?.state === 'running') return null;
+  const drop = selectedSessionDrop();
+  return drop?.quickSell != null && !requestedSales.has(drop.itemId) ? drop : null;
+}
+
+openDropInventory.addEventListener('click', async () => {
+  const drop = selectedSessionDrop();
+  if (!drop || sellingDrop) return;
+  const status = document.querySelector('#session-selection-status');
+  try {
+    await navigator.clipboard.writeText(drop.itemId);
+  } catch {
+    status.textContent = messages.dropIdsCopyError;
+    return;
+  }
+  try {
+    await extension.tabs.create({ url: 'https://stridecsgo.net/inventory' });
+  } catch {
+    status.textContent = messages.dropInventoryOpenError;
+  }
+});
 
 sellSessionItem.addEventListener('click', async () => {
   const drop = selectedSellableDrop();
@@ -318,6 +341,7 @@ function renderAuto() {
     document.querySelector('#session-selection-status').textContent = '';
   }
   sellSessionItem.disabled = sellingDrop || !sellable;
+  openDropInventory.disabled = sellingDrop || !selectedSessionDrop();
   autoForm.querySelector('[type="submit"]').disabled = autoBusy || autoProgress?.state === 'running';
   autoStop.disabled = autoProgress?.state !== 'running';
   showCaseTab.hidden = autoBusy || loadingCaseTab === undefined;
