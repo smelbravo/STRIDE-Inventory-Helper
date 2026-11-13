@@ -6,12 +6,17 @@ function readSouvenirStickers(modal) {
   for (const image of modal.querySelectorAll('img')) {
     if (!image.checkVisibility({ visibilityProperty: true })) continue;
     const control = image.closest('button, [role="button"]');
+    const asset = image.getAttribute('src') ?? '';
     const labels = [image.getAttribute('data-sticker-name'), image.alt, image.title,
       image.getAttribute('aria-label'), control?.getAttribute('data-sticker-name'),
-      control?.getAttribute('aria-label'), control?.title];
+      control?.getAttribute('aria-label'), control?.title,
+      image.parentElement?.getAttribute('aria-label'),
+      image.parentElement?.getAttribute('title')];
     const explicit = labels.map(label => label?.trim().match(stickerLabel)?.[1]).find(Boolean);
     const named = image.getAttribute('data-sticker-name') ?? control?.getAttribute('data-sticker-name');
-    const contextual = image.closest(stickerGroup) ? labels.find(label => label?.trim()) : null;
+    const contextual = image.closest(stickerGroup) || /(?:^|[/_])stickers?(?:[/_]|$)/i.test(asset) ||
+      labels.some(label => /\(Gold\)\s*\|/i.test(label ?? ''))
+      ? labels.find(label => label?.trim() && !/^stickers?$/i.test(label.trim())) : null;
     const name = (explicit ?? named ?? contextual)?.trim().replace(/\s+/g, ' ');
     if (name && !/^(?:stickers?|sticker slot\s*\d+|empty)$/i.test(name)) names.push(name);
   }
@@ -71,10 +76,10 @@ function readStrideResult(includeControls = false, caseName = '') {
       .filter(control => visible(control) && /^Sell\s+\d+(?:[, ]\d{3})*$/i.test(text(control)));
     const sellControl = sellControls.length === 1 ? sellControls[0] : null;
     const sellValue = sellControl ? text(sellControl).match(sell)[1] : undefined;
-    const stickers = modal && (/^Souvenir\s/i.test(title ?? '') || /\bSouvenir\s+Yes\b/i.test(details))
-      ? readSouvenirStickers(modal) : [];
+    const souvenir = /^Souvenir\s/i.test(title ?? '') || /\bSouvenir\s*:?\s+Yes\b/i.test(details);
+    const stickers = modal && souvenir ? readSouvenirStickers(modal) : [];
     return title && itemId ? {
-      name: title, itemId, rarity, float, seed, finish, stickers,
+      name: title, itemId, rarity, float, seed, finish, souvenir, stickers,
       quickSell: sellValue === undefined ? null : Number(sellValue.replace(/[, ]/g, ''))
     } : null;
   };
@@ -186,7 +191,8 @@ async function runCaseOpening(command, quantity = 0, expected = null) {
     if (!session || session.progress.state === 'running' || location.href !== session.url) return false;
     const recorded = session.progress.drops.find(drop => drop.itemId === expected?.itemId);
     if (!recorded || recorded.quickSell == null || recorded.quickSell !== expected.quickSell) return false;
-    if (session.requestedSales?.has(recorded.itemId)) return true;
+    if (session.progress.soldIds?.includes(recorded.itemId)) return 'sold';
+    if (session.requestedSales?.has(recorded.itemId)) return 'pending';
     const result = readStrideResult(true, recorded.name);
     let current = result?.inspect();
     if (result && current?.itemId !== recorded.itemId) {
@@ -204,7 +210,7 @@ async function runCaseOpening(command, quantity = 0, expected = null) {
       button.checkVisibility({ visibilityProperty: true }) && !button.disabled &&
       /^Sell\s+\d+(?:[, ]\d{3})*$/i.test(button.innerText.trim()));
     if (!sellButton) return false;
-    if (session.requestedSales?.has(recorded.itemId)) return true;
+    if (session.requestedSales?.has(recorded.itemId)) return 'pending';
     session.requestedSales ??= new Set();
     session.requestedSales.add(recorded.itemId);
     sellButton.click();
@@ -221,7 +227,29 @@ async function runCaseOpening(command, quantity = 0, expected = null) {
       }
       await new Promise(resolve => setTimeout(resolve, 50));
     }
-    return true;
+    const resultDeadline = Date.now() + 6000;
+    while (Date.now() < resultDeadline && location.href === session.url && globalThis[key] === session) {
+      const updated = readStrideResult(true, recorded.name);
+      // A sale switches the selected item and reduces the value of the remaining batch.
+      const remainingValue = result.data.value - recorded.quickSell;
+      const selected = result.inspect();
+      const oneLeft = remainingValue > 0 && selected?.itemId && selected.itemId !== recorded.itemId &&
+        selected.quickSell === remainingValue && ![...result.modal.querySelectorAll('button')]
+          .some(button => /^Sell all\s/i.test(button.innerText.trim()) &&
+            button.checkVisibility({ visibilityProperty: true }));
+      const batchEmpty = remainingValue === 0 && !result.modal.isConnected &&
+        /^Selling(?:…|\.\.\.)?$/i.test(sellButton.innerText.trim());
+      if (batchEmpty || oneLeft || (updated && updated.data.itemId !== recorded.itemId &&
+          updated.data.value === remainingValue)) {
+        (session.progress.soldIds ??= []).push(recorded.itemId);
+        return 'sold';
+      }
+      // A rejected sale restores the original button and leaves the item selected.
+      await new Promise(resolve => setTimeout(resolve, 100));
+    }
+    if (sellButton.isConnected && /^Sell\s+\d/i.test(sellButton.innerText.trim()) &&
+        result.inspect()?.itemId === recorded.itemId) session.requestedSales.delete(recorded.itemId);
+    return 'pending';
   }
   if (command === 'stop') {
     if (globalThis[key]) globalThis[key].stop = true;
