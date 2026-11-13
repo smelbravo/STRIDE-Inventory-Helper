@@ -50,8 +50,9 @@ const caseCategory = document.querySelector('#case-category');
 const catalogStatus = document.querySelector('#catalog-status');
 let catalog = [];
 const catalogVersion = 3;
+let catalogSelectionRevision = 0;
 
-async function readCaseCatalog(categoryOnly = false) {
+async function readCaseCatalog(mode = 'catalog') {
   const categories = {
     'weapon case': 'weapon cases', 'souvenir package': 'souvenir packages',
     collection: 'collections', agent: 'agents', 'sticker capsule': 'sticker capsules',
@@ -62,6 +63,15 @@ async function readCaseCatalog(categoryOnly = false) {
   const footer = /^(?:open\b|[\d,.\s]+$|[^\p{L}\d]+\s*\d)/iu;
   const clean = value => (value ?? '').trim().replace(/\s+/g, ' ');
   const isName = value => value && !category(value) && !footer.test(value) && value !== '★';
+
+  if (mode === 'detail') {
+    for (const heading of document.querySelectorAll('h1')) {
+      const name = clean(heading.innerText);
+      const kind = category(clean(heading.previousElementSibling?.innerText));
+      if (kind && isName(name) && heading.checkVisibility()) return { name, kind };
+    }
+    return null;
+  }
 
   const kind = new URL(location.href).searchParams.get('kind');
   const routeCategories = { cases: 'weapon cases', souvenir: 'souvenir packages', souvenirs: 'souvenir packages',
@@ -84,7 +94,7 @@ async function readCaseCatalog(categoryOnly = false) {
     const kind = categoryIndex < 0 ? (activeCategory || inferred) : category(lines[categoryIndex]);
     return name ? [{ anchor, entry: { name, kind, url: url.origin + url.pathname } }] : [];
   });
-  if (categoryOnly) {
+  if (mode === 'category') {
     if (activeCategory || !kind || kind === 'all') return activeCategory;
     const kinds = new Set(readCards().map(({ entry }) => entry.kind));
     return kinds.size === 1 ? [...kinds][0] : '';
@@ -156,10 +166,16 @@ async function openStrideTab(url, keepOnTimeout = false) {
   throw new Error(keepOnTimeout ? messages.autoTabTimeout : messages.catalogError);
 }
 
-caseSearch.addEventListener('input', renderCatalog);
-caseCategory.addEventListener('change', renderCatalog);
+function changeCatalogFilter() {
+  catalogSelectionRevision++;
+  renderCatalog();
+}
+caseSearch.addEventListener('input', changeCatalogFilter);
+caseCategory.addEventListener('change', changeCatalogFilter);
+picker.addEventListener('change', () => { catalogSelectionRevision++; });
 document.querySelector('#load-catalog').addEventListener('click', async event => {
   const button = event.currentTarget;
+  const revision = catalogSelectionRevision;
   button.disabled = true;
   catalogStatus.textContent = '';
   let catalogTab;
@@ -196,7 +212,7 @@ document.querySelector('#load-catalog').addEventListener('click', async event =>
     catalog = [...merged.values()].sort((a, b) => a.name.localeCompare(b.name));
     await extension.storage.local.set({ catalog, catalogVersion });
     renderCatalog();
-    if (onCatalog) await syncCatalogCategory(activeTab).catch(() => {});
+    await syncCatalogSelection(activeTab, revision).catch(() => {});
   } catch {
     catalogStatus.textContent = messages.catalogError;
   } finally {
@@ -293,15 +309,34 @@ function renderAuto() {
   }
 }
 
-async function syncCatalogCategory(tab) {
-  if (!/^https:\/\/stridecsgo\.net\/cases\/?(?:[?#]|$)/.test(tab?.url ?? '')) return;
-  const previous = caseCategory.value;
+async function syncCatalogSelection(tab, revision) {
+  if (!/^https:\/\/stridecsgo\.net\/cases(?:\/|[?#]|$)/.test(tab?.url ?? '')) return;
+  const url = new URL(tab.url);
+  const isDetail = /^\/cases\/[^/]+\/?$/.test(url.pathname);
+  const caseUrl = url.origin + url.pathname.replace(/\/$/, '');
+  const cached = isDetail ? catalog.find(entry => entry.url.replace(/\/$/, '') === caseUrl) : null;
+  if (cached?.kind && Object.hasOwn(messages.caseCategories, cached.kind)) {
+    if (catalogSelectionRevision !== revision) return;
+    caseCategory.value = cached.kind;
+    renderCatalog();
+    picker.value = cached.url;
+    return;
+  }
+
   const [{ result }] = await extension.scripting.executeScript({
-    target: { tabId: tab.id }, func: readCaseCatalog, args: [true]
+    target: { tabId: tab.id }, func: readCaseCatalog, args: [isDetail ? 'detail' : 'category']
   });
-  if (caseCategory.value !== previous || (result && !Object.hasOwn(messages.caseCategories, result))) return;
-  caseCategory.value = result;
+  if (catalogSelectionRevision !== revision) return;
+  const kind = isDetail ? result?.kind : result;
+  if (kind && !Object.hasOwn(messages.caseCategories, kind)) return;
+  if (isDetail && !result) return;
+  if (isDetail) {
+    if (cached) Object.assign(cached, result);
+    else catalog = [...catalog, { ...result, url: caseUrl }].sort((a, b) => a.name.localeCompare(b.name));
+  }
+  caseCategory.value = kind;
   renderCatalog();
+  if (isDetail) picker.value = cached?.url ?? caseUrl;
 }
 
 async function autoCommand(command, ...args) {
@@ -577,8 +612,9 @@ async function initialize() {
     const stored = await extension.storage.local.get(['language', 'catalog', 'catalogVersion']);
     catalog = stored.catalogVersion === catalogVersion ? (stored.catalog ?? []) : [];
     applyLanguage(stored.language ?? defaultLanguage);
+    const revision = catalogSelectionRevision;
     void extension.tabs.query({ active: true, currentWindow: true })
-      .then(([tab]) => syncCatalogCategory(tab)).catch(() => {});
+      .then(([tab]) => syncCatalogSelection(tab, revision)).catch(() => {});
     languageSelect.disabled = false;
     await refreshRecords();
     render();
