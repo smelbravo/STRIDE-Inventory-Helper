@@ -282,26 +282,40 @@ openDropInventory.addEventListener('click', async () => {
   }
 });
 
-async function sellFromInventory(itemId, price) {
+async function sellFromInventory(itemId, price, name) {
   if (location.origin !== 'https://stridecsgo.net' || !/^\/inventory\/?$/.test(location.pathname) || !/^\d+$/.test(itemId)) return false;
   const controls = 'button, [role="button"]';
   const visible = node => node.checkVisibility({ visibilityProperty: true });
-  const deadline = Date.now() + 5000;
+  const deadline = Date.now() + 12000;
+  const normalize = value => value?.trim().replace(/\s+/g, ' ').toLowerCase();
+  const expectedName = normalize(name);
+  let opened = false;
   while (Date.now() < deadline) {
+    if (!/^\/inventory\/?$/.test(location.pathname)) return false;
     const cards = [...document.querySelectorAll(`[data-item-id="${itemId}"]`)].filter(visible);
     const card = cards.length === 1 ? cards[0] : null;
-    const control = card?.closest(controls) ?? (card?.querySelectorAll(controls).length === 1 ? card.querySelector(controls) : null);
+    const namedCards = !card && expectedName
+      ? [...document.querySelectorAll(controls)].filter(button => visible(button) &&
+        [...button.querySelectorAll('img[alt]')].some(image => normalize(image.alt) === expectedName))
+      : [];
+    const control = card?.closest(controls) ??
+      (card?.querySelectorAll(controls).length === 1 ? card.querySelector(controls) : null) ??
+      (namedCards.length === 1 ? namedCards[0] : null);
     if (control && !control.matches(':disabled, [aria-disabled="true"]')) {
       control.click();
+      opened = true;
       break;
     }
     await new Promise(resolve => setTimeout(resolve, 200));
   }
-  while (Date.now() < deadline) {
+  if (!opened) return 'itemNotFound';
+  const detailDeadline = Date.now() + 5000;
+  while (Date.now() < detailDeadline) {
     if (!/^\/inventory\/?$/.test(location.pathname)) return false;
     const dialogs = [...document.querySelectorAll('dialog, [role="dialog"]')].filter(visible);
     const dialog = dialogs.length === 1 ? dialogs[0] : null;
     const id = dialog?.innerText.match(/\bItem ID\s*:?\s*(\d+)\b/i)?.[1];
+    if (id && id !== itemId) return 'itemNotFound';
     if (id === itemId) {
       const buttons = [...dialog.querySelectorAll(controls)].filter(button => {
         const amount = button.innerText.trim().match(/^(?:Quick Sell|Sell)\s+(\d+(?:[,\s]\d{3})*)$/i)?.[1];
@@ -335,12 +349,14 @@ sellSessionItem.addEventListener('click', async () => {
     if (submitted === false) {
       const tab = await openStrideTab('https://stridecsgo.net/inventory');
       const [{ result }] = await extension.scripting.executeScript({
-        target: { tabId: tab.id }, func: sellFromInventory, args: [drop.itemId, drop.quickSell]
+        target: { tabId: tab.id }, func: sellFromInventory, args: [drop.itemId, drop.quickSell, drop.name]
       });
       submitted = result;
     }
-    if (submitted) requestedSales.add(drop.itemId);
-    status.textContent = submitted ? messages.dropSaleSubmitted : messages.dropSaleUnavailable;
+    if (submitted === true) requestedSales.add(drop.itemId);
+    status.textContent = submitted === true ? messages.dropSaleSubmitted
+      : submitted === 'itemNotFound' ? messages.dropSaleItemNotFound(drop.itemId)
+      : messages.dropSaleUnavailable;
   } catch {
     status.textContent = messages.dropSaleUnavailable;
   } finally {
