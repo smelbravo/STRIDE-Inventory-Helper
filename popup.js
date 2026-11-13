@@ -61,7 +61,7 @@ function readCaseCatalog(requestedCategory) {
     [singular, plural].includes(value.toLowerCase()))?.[1];
   const footer = /^(?:open\b|[\d,.\s]+$|[^\p{L}\d]+\s*\d)/iu;
   const clean = value => (value ?? '').trim().replace(/\s+/g, ' ');
-  const isName = value => value && !category.test(value) && !footer.test(value) && value !== '★';
+  const isName = value => value && !category(value) && !footer.test(value) && value !== '★';
 
   const activeCategory = [...document.querySelectorAll('[aria-selected="true"], [aria-pressed="true"], [data-state="active"]')]
     .map(element => category(clean(element.innerText).replace(/\s+[\d,]+$/, ''))).find(Boolean);
