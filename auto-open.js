@@ -1,5 +1,5 @@
 // Runs in the active tab on demand and reads only the visible results.
-function readStrideResult(includeControls = false) {
+function readStrideResult(includeControls = false, caseName = '') {
   const visible = element => element.checkVisibility({ visibilityProperty: true });
   const text = element => element.innerText.trim().replace(/\s+/g, ' ');
   const buttons = [...document.querySelectorAll('button, [role="button"]')].filter(visible);
@@ -22,8 +22,8 @@ function readStrideResult(includeControls = false) {
     container = container.parentElement;
   }
   const headings = [...document.querySelectorAll('h1')].filter(visible);
-  if (!repeatMatch || headings.length !== 1) return null;
-  const box = text(headings[0]);
+  if (!repeatMatch || (!caseName && headings.length !== 1)) return null;
+  const box = caseName || text(headings[0]);
   const count = Number(repeatMatch[1]);
   if (!all.length && count !== 1) return null;
   const cost = Number(repeatMatch[2].replace(/[, ]/g, ''));
@@ -49,19 +49,19 @@ function readStrideResult(includeControls = false) {
   return { data: { ...data, itemId: id[1] }, button, drops };
 }
 
-function prepareCase(selectSingle = false, caseName = '', diagnose = false) {
+function prepareCase(selectSingle, expected, diagnose = false) {
+  const { box, url } = expected ?? {};
+  if (!box || url !== location.origin + location.pathname) {
+    return diagnose ? { failure: 'autoCaseRoute' } : null;
+  }
   const normalize = value => value.trim().replace(/\s+/g, ' ');
-  const headings = [...document.querySelectorAll('h1,h2,h3,[role="heading"]')];
-  const heading = caseName
-    ? headings.find(element => normalize(element.textContent) === normalize(caseName))
-    : headings[0];
   const buttons = [...document.querySelectorAll('button, [role="button"]')].filter(button => button.checkVisibility());
   const labels = button => [button.innerText, button.textContent, button.getAttribute('aria-label') ?? ''].map(normalize);
   const single = buttons.find(button => labels(button).some(label => /^(?:[×✕✖x]\s*)?1$/i.test(label)));
   if (selectSingle && single) single.click();
   const price = /^OPEN\s*[^\p{L}\d]*(\d+(?:[, ]\d{3})*)$/iu;
   const open = buttons.find(button => labels(button).some(label => price.test(label)));
-  const failure = !heading ? 'autoCaseTitle' : !single ? 'autoQuantityControl'
+  const failure = !single ? 'autoQuantityControl'
     : !open ? 'autoOpenControl' : open.matches(':disabled, [aria-disabled="true"]') ? 'autoOpenDisabled' : null;
   if (failure) return diagnose ? { failure } : null;
   const cost = Number(labels(open).find(label => price.test(label)).match(price)[1].replace(/[, ]/g, ''));
@@ -70,7 +70,7 @@ function prepareCase(selectSingle = false, caseName = '', diagnose = false) {
   if (!unitPrices.includes(cost) || !Number.isSafeInteger(cost) || cost <= 0) {
     return diagnose ? { failure: 'autoPriceMismatch' } : null;
   }
-  return { box: heading.innerText.trim(), count: 1, cost, button: open };
+  return { box, url, count: 1, cost, button: open };
 }
 
 async function runCaseOpening(command, quantity = 0, expected = null) {
@@ -81,15 +81,15 @@ async function runCaseOpening(command, quantity = 0, expected = null) {
     return globalThis[key]?.progress ?? null;
   }
 
-  const read = () => readStrideResult(true);
-  if (command === 'diagnose') return prepareCase(false, expected?.box, true)?.failure ?? null;
+  const read = () => readStrideResult(true, expected?.initial ? expected.box : '');
+  if (command === 'diagnose') return prepareCase(false, expected, true)?.failure ?? null;
   if (command === 'prepare') {
-    prepareCase(true);
+    prepareCase(true, expected);
     return null;
   }
-  const initial = expected?.initial || command === 'previewInitial' ? prepareCase(false, expected?.box) : null;
+  const initial = expected?.initial || command === 'previewInitial' ? prepareCase(false, expected) : null;
   const first = initial
-    ? { data: { box: initial.box, count: 1, cost: initial.cost, initial: true }, button: initial.button }
+    ? { data: { box: initial.box, url: initial.url, count: 1, cost: initial.cost, initial: true }, button: initial.button }
     : read();
   if (command === 'previewInitial') return initial ? first.data : null;
   if (command === 'preview') return first?.data ?? null;
@@ -112,8 +112,8 @@ async function runCaseOpening(command, quantity = 0, expected = null) {
         while (!session.stop) {
           if (location.href !== originalUrl) throw new Error('failed');
           if (current.data.initial) {
-            const control = prepareCase(false, first.data.box);
-            ready = control && { data: { box: control.box, count: 1, cost: control.cost, initial: true }, button: control.button };
+            const control = prepareCase(false, first.data);
+            ready = control && { data: { box: control.box, url: control.url, count: 1, cost: control.cost, initial: true }, button: control.button };
           } else {
             ready = read();
           }

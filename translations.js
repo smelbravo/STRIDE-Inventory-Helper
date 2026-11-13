@@ -1,6 +1,6 @@
 const translations = {
   en: {
-    autoCaseTitle: 'The case title did not match the catalog. Check the STRIDE tab left open.',
+    autoCaseRoute: 'The STRIDE address did not match the selected case. Check the STRIDE tab left open.',
     autoQuantityControl: 'Could not find the ×1 control. Check the STRIDE tab left open.',
     autoOpenControl: 'Could not read the price on the Open button. Check the STRIDE tab left open.',
     autoOpenDisabled: 'STRIDE disabled the Open button. Check the STRIDE tab left open.',
@@ -53,7 +53,7 @@ const translations = {
     csvFilename: 'stride-openings.csv'
   },
   'pt-PT': {
-    autoCaseTitle: 'O título da caixa não corresponde ao catálogo. Verifica o separador do STRIDE que ficou aberto.',
+    autoCaseRoute: 'O endereço no STRIDE não corresponde à caixa selecionada. Verifica o separador do STRIDE que ficou aberto.',
     autoQuantityControl: 'Não foi possível encontrar o botão ×1. Verifica o separador do STRIDE que ficou aberto.',
     autoOpenControl: 'Não foi possível ler o preço no botão Open. Verifica o separador do STRIDE que ficou aberto.',
     autoOpenDisabled: 'O botão Open está desativado no STRIDE. Verifica o separador que ficou aberto.',

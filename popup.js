@@ -169,13 +169,13 @@ autoForm.addEventListener('submit', async event => {
     if (selected) {
       const deadline = Date.now() + 8000;
       do {
-        await autoCommand('prepare');
-        preview = await autoCommand('previewInitial', 0, { box: selected.name });
+        await autoCommand('prepare', 0, { box: selected.name, url: selected.url });
+        preview = await autoCommand('previewInitial', 0, { box: selected.name, url: selected.url });
         if (preview) break;
         await new Promise(resolve => setTimeout(resolve, 250));
       } while (Date.now() < deadline);
       if (!preview) {
-        failure = await autoCommand('diagnose', 0, { box: selected.name }) ?? 'autoCatalogError';
+        failure = await autoCommand('diagnose', 0, { box: selected.name, url: selected.url }) ?? 'autoCatalogError';
         openedTab = undefined;
         throw new Error();
       }
