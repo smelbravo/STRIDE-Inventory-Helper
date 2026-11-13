@@ -1,7 +1,9 @@
 :root { color-scheme: dark; font: 14px system-ui, sans-serif; color: #f2f2f4; background: #131416; }
 body { margin: 0; width: min(390px, 100vw); }
 main { padding: 16px; }
-h1 { font-size: 19px; margin: 0 0 6px; }
+.brand { display: flex; align-items: center; gap: 8px; }
+.brand img { flex: none; }
+h1 { font-size: 19px; margin: 0; }
 h2 { font-size: 16px; }
 a { color: #ffc857; }
 form { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 16px 0; }
