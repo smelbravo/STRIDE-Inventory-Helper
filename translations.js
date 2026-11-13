@@ -1,0 +1,50 @@
+const translations = {
+  en: {
+    language: 'Language',
+    cases: 'Open cases on STRIDE ↗',
+    box: 'Case',
+    count: 'Openings',
+    cost: 'Total cost',
+    value: 'Total drop value',
+    submit: 'Record opening',
+    history: 'History',
+    filter: 'Filter by case',
+    export: 'Export CSV',
+    totals: (count, cost, value, balance) =>
+      `Openings: ${count} · Spent: ${cost} · Drop value: ${value} · Balance: ${balance} coins`,
+    balance: value => `Balance: ${value} coins`,
+    empty: 'No openings match this search.',
+    limit: 'Showing the 50 most recent records. The CSV includes all results.',
+    missingBox: 'Enter the case name.',
+    saved: 'Opening recorded.',
+    saveError: 'Could not save the opening.',
+    loadError: 'Could not load the history.',
+    languageError: 'Could not save the language preference.',
+    csvHeader: 'date;case;openings;cost;drop_value;balance',
+    csvFilename: 'stride-openings.csv'
+  },
+  'pt-PT': {
+    language: 'Idioma',
+    cases: 'Abrir caixas no STRIDE ↗',
+    box: 'Caixa',
+    count: 'Aberturas',
+    cost: 'Custo total',
+    value: 'Valor total dos drops',
+    submit: 'Registar abertura',
+    history: 'Histórico',
+    filter: 'Filtrar por caixa',
+    export: 'Exportar CSV',
+    totals: (count, cost, value, balance) =>
+      `Aberturas: ${count} · Gasto: ${cost} · Valor dos drops: ${value} · Saldo: ${balance} moedas`,
+    balance: value => `Saldo: ${value} moedas`,
+    empty: 'Nenhuma abertura registada para esta pesquisa.',
+    limit: 'A lista mostra os 50 registos mais recentes. O CSV inclui todos os resultados.',
+    missingBox: 'Introduz o nome da caixa.',
+    saved: 'Abertura registada.',
+    saveError: 'Não foi possível guardar a abertura.',
+    loadError: 'Não foi possível carregar o histórico.',
+    languageError: 'Não foi possível guardar a preferência de idioma.',
+    csvHeader: 'data;caixa;aberturas;custo;valor_drops;saldo',
+    csvFilename: 'stride-aberturas.csv'
+  }
+};

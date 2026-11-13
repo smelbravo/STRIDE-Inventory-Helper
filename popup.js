@@ -6,13 +6,36 @@ const historyList = document.querySelector('#history');
 const totals = document.querySelector('#totals');
 const exportButton = document.querySelector('#export');
 const status = document.querySelector('#status');
-const number = new Intl.NumberFormat('pt-PT');
-const date = new Intl.DateTimeFormat('pt-PT', { dateStyle: 'short', timeStyle: 'short' });
+const languageSelect = document.querySelector('#language');
+let language = 'en';
+let messages = translations.en;
+let number;
+let date;
+let statusKey;
 let records = [];
 
+function setStatus(key) {
+  statusKey = key;
+  status.textContent = key ? messages[key] : '';
+}
+
+function applyLanguage(nextLanguage) {
+  language = nextLanguage === 'pt-PT' ? 'pt-PT' : 'en';
+  messages = translations[language];
+  number = new Intl.NumberFormat(language);
+  date = new Intl.DateTimeFormat(language, { dateStyle: 'short', timeStyle: 'short' });
+  document.documentElement.lang = language;
+  languageSelect.value = language;
+  for (const element of document.querySelectorAll('[data-text]')) {
+    element.textContent = messages[element.dataset.text];
+  }
+  setStatus(statusKey);
+  render();
+}
+
 function visibleRecords() {
-  const query = filter.value.trim().toLocaleLowerCase('pt-PT');
-  return records.filter(record => record.box.toLocaleLowerCase('pt-PT').includes(query));
+  const query = filter.value.trim().toLocaleLowerCase(language);
+  return records.filter(record => record.box.toLocaleLowerCase(language).includes(query));
 }
 
 function render() {
@@ -21,16 +44,16 @@ function render() {
   const cost = visible.reduce((sum, record) => sum + record.cost, 0);
   const value = visible.reduce((sum, record) => sum + record.value, 0);
   totals.textContent = visible.length
-    ? `${number.format(count)} aberturas · ${number.format(cost)} gastas · ${number.format(value)} em drops · saldo de ${number.format(value - cost)} moedas`
-    : 'Nenhuma abertura registada para esta pesquisa.';
+    ? messages.totals(number.format(count), number.format(cost), number.format(value), number.format(value - cost))
+    : messages.empty;
   historyList.replaceChildren(...visible.slice(0, 50).map(record => {
     const entry = document.createElement('li');
-    entry.textContent = `${record.box} ×${number.format(record.count)} · ${date.format(record.createdAt)} · saldo de ${number.format(record.value - record.cost)} moedas`;
+    entry.textContent = `${record.box} ×${number.format(record.count)} · ${date.format(record.createdAt)} · ${messages.balance(number.format(record.value - record.cost))}`;
     return entry;
   }));
   if (visible.length > 50) {
     const note = document.createElement('li');
-    note.textContent = 'A lista mostra os 50 registos mais recentes. O CSV inclui todos os resultados.';
+    note.textContent = messages.limit;
     historyList.append(note);
   }
   exportButton.disabled = visible.length === 0;
@@ -41,7 +64,7 @@ form.addEventListener('submit', async event => {
   const data = new FormData(form);
   const box = data.get('box').trim();
   if (!box) {
-    status.textContent = 'Introduz o nome da caixa.';
+    setStatus('missingBox');
     form.elements.box.focus();
     return;
   }
@@ -60,9 +83,9 @@ form.addEventListener('submit', async event => {
     form.elements.value.value = '';
     filter.value = '';
     render();
-    status.textContent = 'Abertura registada.';
+    setStatus('saved');
   } catch {
-    status.textContent = 'Não foi possível guardar a abertura.';
+    setStatus('saveError');
   } finally {
     save.disabled = false;
   }
@@ -74,21 +97,40 @@ exportButton.addEventListener('click', () => {
     const safeBox = /^[=+\-@]/.test(box) ? "'" + box : box;
     return [new Date(createdAt).toISOString(), '"' + safeBox.replaceAll('"', '""') + '"', count, cost, value, value - cost].join(';');
   });
-  const url = URL.createObjectURL(new Blob(['\uFEFF', ['data;caixa;aberturas;custo;valor_drops;saldo', ...rows].join('\r\n')], { type: 'text/csv;charset=utf-8' }));
+  const url = URL.createObjectURL(new Blob(['\uFEFF', [messages.csvHeader, ...rows].join('\r\n')], { type: 'text/csv;charset=utf-8' }));
   const link = document.createElement('a');
   link.href = url;
-  link.download = 'stride-aberturas.csv';
+  link.download = messages.csvFilename;
   link.click();
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 });
 
-async function initialize() {
+languageSelect.addEventListener('change', async () => {
+  const previousLanguage = language;
+  applyLanguage(languageSelect.value);
+  languageSelect.disabled = true;
   try {
-    ({ records = [] } = await extension.storage.local.get('records'));
-    render();
-    save.disabled = false;
+    await extension.storage.local.set({ language });
+    if (statusKey === 'languageError') setStatus();
   } catch {
-    status.textContent = 'Não foi possível carregar o histórico.';
+    applyLanguage(previousLanguage);
+    setStatus('languageError');
+  } finally {
+    languageSelect.disabled = false;
+  }
+});
+
+async function initialize() {
+  const defaultLanguage = /^pt(?:-|$)/i.test(navigator.language) ? 'pt-PT' : 'en';
+  try {
+    const stored = await extension.storage.local.get(['records', 'language']);
+    records = stored.records ?? [];
+    applyLanguage(stored.language ?? defaultLanguage);
+    save.disabled = false;
+    languageSelect.disabled = false;
+  } catch {
+    applyLanguage(defaultLanguage);
+    setStatus('loadError');
   }
 }
 

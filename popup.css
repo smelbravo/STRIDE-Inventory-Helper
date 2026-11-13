@@ -7,7 +7,8 @@ a { color: #ffc857; }
 form { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 16px 0; }
 .wide { grid-column: 1 / -1; }
 label { display: grid; gap: 4px; }
-input, button { min-width: 0; border: 1px solid #44464c; border-radius: 4px; padding: 7px; font: inherit; background: #202125; color: inherit; }
+input, button, select { min-width: 0; border: 1px solid #44464c; border-radius: 4px; padding: 7px; font: inherit; background: #202125; color: inherit; }
+main > label { margin: 10px 0; }
 button { cursor: pointer; }
 button:disabled { cursor: default; opacity: .55; }
 button[type=submit] { color: #161616; background: #ffc857; font-weight: 700; }
