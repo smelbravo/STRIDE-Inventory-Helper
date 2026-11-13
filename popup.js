@@ -160,7 +160,7 @@ autoForm.addEventListener('submit', async event => {
       const deadline = Date.now() + 8000;
       do {
         await autoCommand('prepare');
-        preview = await autoCommand('previewInitial');
+        preview = await autoCommand('previewInitial', 0, { box: selected.name });
         if (preview) break;
         await new Promise(resolve => setTimeout(resolve, 250));
       } while (Date.now() < deadline);

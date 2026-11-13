@@ -49,18 +49,23 @@ function readStrideResult(includeControls = false) {
   return { data: { ...data, itemId: id[1] }, button, drops };
 }
 
-function prepareCase(selectSingle = false) {
-  const heading = document.querySelector('h1, main h2, main [role="heading"]');
+function prepareCase(selectSingle = false, caseName = '') {
+  const normalize = value => value.trim().replace(/\s+/g, ' ');
+  const headings = [...document.querySelectorAll('h1,h2,h3,[role="heading"]')];
+  const heading = caseName
+    ? headings.find(element => normalize(element.textContent) === normalize(caseName))
+    : headings[0];
   const buttons = [...document.querySelectorAll('button, [role="button"]')].filter(button => button.checkVisibility());
-  const label = button => button.innerText.trim().replace(/\s+/g, ' ');
-  const single = buttons.find(button => /^[×x]\s*1$/i.test(label(button)));
+  const labels = button => [button.innerText, button.textContent, button.getAttribute('aria-label') ?? ''].map(normalize);
+  const single = buttons.find(button => labels(button).some(label => /^(?:[×✕✖x]\s*)?1$/i.test(label)));
   if (selectSingle && single) single.click();
   const price = /^OPEN\s*[^\p{L}\d]*(\d+(?:[, ]\d{3})*)$/iu;
-  const open = buttons.find(button => price.test(label(button)));
+  const open = buttons.find(button => labels(button).some(label => price.test(label)));
   if (!heading || !single || !open || open.matches(':disabled, [aria-disabled="true"]')) return null;
-  const cost = Number(label(open).match(price)[1].replace(/[, ]/g, ''));
-  const unitPrice = document.body.innerText.replace(/\s+/g, ' ').match(/\b(\d+(?:[, ]\d{3})*)\s*per case\b/i);
-  if (!unitPrice || Number(unitPrice[1].replace(/[, ]/g, '')) !== cost || !Number.isSafeInteger(cost) || cost <= 0) return null;
+  const cost = Number(labels(open).find(label => price.test(label)).match(price)[1].replace(/[, ]/g, ''));
+  const unitPrices = [...normalize(document.body.innerText).matchAll(/(?<!\d)(\d+(?:[, ]\d{3})*)\s*per case\b/gi)]
+    .map(match => Number(match[1].replace(/[, ]/g, '')));
+  if (!unitPrices.includes(cost) || !Number.isSafeInteger(cost) || cost <= 0) return null;
   return { box: heading.innerText.trim(), count: 1, cost, button: open };
 }
 
@@ -77,7 +82,7 @@ async function runCaseOpening(command, quantity = 0, expected = null) {
     prepareCase(true);
     return null;
   }
-  const initial = expected?.initial || command === 'previewInitial' ? prepareCase() : null;
+  const initial = expected?.initial || command === 'previewInitial' ? prepareCase(false, expected?.box) : null;
   const first = initial
     ? { data: { box: initial.box, count: 1, cost: initial.cost, initial: true }, button: initial.button }
     : read();
@@ -102,7 +107,7 @@ async function runCaseOpening(command, quantity = 0, expected = null) {
         while (!session.stop) {
           if (location.href !== originalUrl) throw new Error('failed');
           if (current.data.initial) {
-            const control = prepareCase();
+            const control = prepareCase(false, first.data.box);
             ready = control && { data: { box: control.box, count: 1, cost: control.cost, initial: true }, button: control.button };
           } else {
             ready = read();
