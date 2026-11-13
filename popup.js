@@ -597,7 +597,7 @@ autoForm.addEventListener('submit', async event => {
     failure = selected ? 'autoCatalogError' : 'autoSetup';
     if (!preview || quantity % preview.count !== 0 || !Number.isSafeInteger(quantity * preview.cost)) throw new Error();
     if (!confirm(messages.autoConfirm(number.format(quantity), number.format(quantity / preview.count * preview.cost)))) return;
-    autoProgress = await autoCommand('start', quantity, preview);
+    autoProgress = await autoCommand('start', quantity, preview, autoForm.elements.readStickerTooltips.checked);
     if (!autoProgress) throw new Error();
     openedTab = undefined;
     await extension.storage.local.set({ openingTab: autoTab });

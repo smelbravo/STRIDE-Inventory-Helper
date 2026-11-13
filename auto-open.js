@@ -230,7 +230,7 @@ function prepareCase(selectBatch, expected, diagnose = false) {
   return { box, url, count, cost, button: open };
 }
 
-async function runCaseOpening(command, quantity = 0, expected = null) {
+async function runCaseOpening(command, quantity = 0, expected = null, readStickerTooltips = false) {
   const key = '__strideInventoryOpening';
   if (command === 'status') return globalThis[key]?.progress ?? null;
   if (command === 'sellVisibleDrop') {
@@ -390,14 +390,18 @@ async function runCaseOpening(command, quantity = 0, expected = null) {
         const { box, count, cost } = current.data;
         const items = new Map();
         const firstDrop = next.inspect();
-        if (firstDrop) items.set(firstDrop.itemId, await collectSouvenirStickers(next, firstDrop));
+        if (firstDrop) {
+          items.set(firstDrop.itemId, readStickerTooltips ? await collectSouvenirStickers(next, firstDrop) : firstDrop);
+        }
         if (next.thumbnails.length === count) {
           for (const thumbnail of next.thumbnails) {
             if (location.href !== originalUrl || !thumbnail.isConnected) break;
             thumbnail.click();
             await new Promise(resolve => setTimeout(resolve, 80));
             const drop = next.inspect();
-            if (drop && !items.has(drop.itemId)) items.set(drop.itemId, await collectSouvenirStickers(next, drop));
+            if (drop && !items.has(drop.itemId)) {
+              items.set(drop.itemId, readStickerTooltips ? await collectSouvenirStickers(next, drop) : drop);
+            }
           }
         }
         const dropItems = [...items.values()];

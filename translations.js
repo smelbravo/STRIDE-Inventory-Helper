@@ -41,6 +41,7 @@ const translations = {
       graffiti: 'Graffiti'
     },
     autoSkip: 'Skip opening animation',
+    autoReadStickers: 'Read sticker names (slower)',
     showCaseTab: 'Go to case tab',
     autoBackgroundLoading: 'The case controls are still missing in the background tab. Go to that tab, wait for Open to appear, then reopen the extension and press Start.',
     autoPageError: 'The case page returned an error while preparing the opening.',
@@ -138,6 +139,7 @@ const translations = {
       graffiti: 'Graffiti'
     },
     autoSkip: 'Saltar a animação de abertura',
+    autoReadStickers: 'Ler nomes dos autocolantes (mais lento)',
     showCaseTab: 'Ir para o separador da caixa',
     autoBackgroundLoading: 'Os controlos da caixa ainda não apareceram em segundo plano. Vai para esse separador, espera que apareça o botão Open e carrega em Iniciar na extensão.',
     autoPageError: 'Ocorreu um erro na página da caixa durante a preparação da abertura.',
