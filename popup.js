@@ -69,16 +69,16 @@ function renderCatalog() {
   caseSearch.placeholder = messages.filter;
 }
 
-async function openStrideTab(url) {
+async function openStrideTab(url, keepOnTimeout = false) {
   const tab = await extension.tabs.create({ url, active: false });
   const deadline = Date.now() + 20000;
   while (Date.now() < deadline) {
     const current = await extension.tabs.get(tab.id);
-    if (current.status === 'complete' && current.url !== 'about:blank') return current;
+    if (current.status === 'complete' && current.url && current.url !== 'about:blank') return current;
     await new Promise(resolve => setTimeout(resolve, 250));
   }
-  await extension.tabs.remove(tab.id).catch(() => {});
-  throw new Error();
+  if (!keepOnTimeout) await extension.tabs.remove(tab.id).catch(() => {});
+  throw new Error(keepOnTimeout ? messages.autoTabTimeout : messages.catalogError);
 }
 
 caseSearch.addEventListener('input', renderCatalog);
@@ -160,7 +160,7 @@ autoForm.addEventListener('submit', async event => {
       if (!granted) throw new Error();
       failure = 'autoTabError';
     }
-    const tab = selected ? await openStrideTab(selected.url)
+    const tab = selected ? await openStrideTab(selected.url, true)
       : (await extension.tabs.query({ active: true, currentWindow: true }))[0];
     if (selected) openedTab = tab.id;
     if (/^https:\/\/stridecsgo\.net\/login(?:[/?#]|$)/.test(tab?.url ?? '')) {
@@ -168,7 +168,11 @@ autoForm.addEventListener('submit', async event => {
       autoError = 'autoLogin';
       return;
     }
-    if (!tab?.url || !/^https:\/\/stridecsgo\.net\/cases(?:\/|[?#]|$)/.test(tab.url)) throw new Error();
+    if (!tab?.url || !/^https:\/\/stridecsgo\.net\/cases(?:\/|[?#]|$)/.test(tab.url)) {
+      failure = selected ? 'autoCaseRoute' : 'autoSetup';
+      if (selected) openedTab = undefined;
+      throw new Error();
+    }
     autoTab = tab.id;
     await extension.scripting.executeScript({ target: { tabId: autoTab }, files: ['auto-open.js'] });
     failure = 'autoTabError';
