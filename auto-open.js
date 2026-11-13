@@ -27,22 +27,25 @@ function readSouvenirStickers(modal, includeUnnamed = false) {
   return names;
 }
 
-async function collectSouvenirStickers(result, drop) {
+async function collectSouvenirStickers(result, drop, stickerNamesByImage) {
   if (!drop?.souvenir) return drop;
   const stickerText = /^Sticker\s*\|\s*(.+)$/i;
   const names = [];
-  const stillSelected = () => result.modal.isConnected && result.inspect()?.itemId === drop.itemId;
+  const stillSelected = () => result.modal.isConnected &&
+    result.modal.innerText.match(/\bItem ID\s+(\d+)/i)?.[1] === drop.itemId;
   const tooltipNames = () => [...document.querySelectorAll('[role="tooltip"], [data-state="delayed-open"], [data-state="instant-open"], [data-state="open"]')]
     .filter(node => node.checkVisibility({ visibilityProperty: true }))
     .map(node => node.textContent.trim().match(stickerText)?.[1])
     .filter(name => name && !name.includes('\n'));
   for (const { image, name } of readSouvenirStickers(result.modal, true)) {
     if (!stillSelected()) return drop;
-    if (name) {
-      names.push(name);
+    if (result.thumbnails.some(button => button.contains(image))) continue;
+    const asset = image.currentSrc || image.getAttribute('src');
+    const knownName = name ?? (asset && stickerNamesByImage.get(asset));
+    if (knownName) {
+      names.push(knownName);
       continue;
     }
-    if (result.thumbnails.some(button => button.contains(image))) continue;
     const trigger = image.closest('[data-state], [aria-describedby], button, [role="button"]') ?? image.parentElement ?? image;
     const previous = new Set(tooltipNames());
     image.dispatchEvent(new PointerEvent('pointerover', { bubbles: true, pointerType: 'mouse' }));
@@ -56,7 +59,10 @@ async function collectSouvenirStickers(result, drop) {
           .map(id => document.getElementById(id)?.textContent.trim().match(stickerText)?.[1]).find(Boolean);
         const label = described ?? tooltipNames().find(candidate => !previous.has(candidate));
         if (label) {
-          if (stillSelected()) names.push(label);
+          if (stillSelected()) {
+            names.push(label);
+            if (asset) stickerNamesByImage.set(asset, label);
+          }
           break;
         }
         await new Promise(resolve => setTimeout(resolve, 50));
@@ -354,6 +360,7 @@ async function runCaseOpening(command, quantity = 0, expected = null, readSticke
   const store = (globalThis.browser ?? globalThis.chrome).storage.local;
 
   async function run() {
+    const stickerNamesByImage = new Map();
     let current = first;
     try {
       while (session.progress.done < quantity && !session.stop) {
@@ -391,7 +398,7 @@ async function runCaseOpening(command, quantity = 0, expected = null, readSticke
         const items = new Map();
         const firstDrop = next.inspect();
         if (firstDrop) {
-          items.set(firstDrop.itemId, readStickerTooltips ? await collectSouvenirStickers(next, firstDrop) : firstDrop);
+          items.set(firstDrop.itemId, readStickerTooltips ? await collectSouvenirStickers(next, firstDrop, stickerNamesByImage) : firstDrop);
         }
         if (next.thumbnails.length === count) {
           for (const thumbnail of next.thumbnails) {
@@ -400,7 +407,7 @@ async function runCaseOpening(command, quantity = 0, expected = null, readSticke
             await new Promise(resolve => setTimeout(resolve, 80));
             const drop = next.inspect();
             if (drop && !items.has(drop.itemId)) {
-              items.set(drop.itemId, readStickerTooltips ? await collectSouvenirStickers(next, drop) : drop);
+              items.set(drop.itemId, readStickerTooltips ? await collectSouvenirStickers(next, drop, stickerNamesByImage) : drop);
             }
           }
         }
