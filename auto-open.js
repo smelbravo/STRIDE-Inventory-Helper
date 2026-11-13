@@ -54,10 +54,10 @@ function prepareCase(selectSingle = false) {
   const buttons = [...document.querySelectorAll('button')].filter(button => button.checkVisibility());
   const single = buttons.find(button => /^[×x]\s*1$/i.test(button.innerText.trim()));
   if (selectSingle && single) single.click();
-  const open = buttons.find(button => /^OPEN\s+[^\d]*\d[\d, ]*$/i.test(button.innerText.trim()));
+  const open = buttons.find(button => /^OPEN\s*[^\d]*\d[\d, ]*$/i.test(button.innerText.trim().replace(/\s+/g, ' ')));
   if (!heading || !single || !open || open.disabled) return null;
-  const cost = Number(open.innerText.match(/\d[\d, ]*$/)[0].replace(/[, ]/g, ''));
-  const unitPrice = document.body.innerText.match(/(?:^|\n)[^\S\n]*(\d+(?:[, ]\d{3})*)\s+per case\b/i);
+  const cost = Number(open.innerText.trim().replace(/\s+/g, ' ').match(/\d[\d, ]*$/)[0].replace(/[, ]/g, ''));
+  const unitPrice = document.body.innerText.match(/\b(\d+(?:[, ]\d{3})*)\s+per case\b/i);
   if (!unitPrice || Number(unitPrice[1].replace(/[, ]/g, '')) !== cost || !Number.isSafeInteger(cost) || cost <= 0) return null;
   return { box: heading.innerText.trim(), count: 1, cost, button: open };
 }

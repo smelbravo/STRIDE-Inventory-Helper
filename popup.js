@@ -126,7 +126,7 @@ function renderAuto() {
   autoStop.disabled = autoProgress?.state !== 'running';
   autoStatus.textContent = autoProgress
     ? messages.autoStatus(autoProgress.done, autoProgress.total, messages.autoStates[autoProgress.state])
-    : autoError ? messages.autoSetup : '';
+    : autoError ? (picker.value ? messages.autoCatalogError : messages.autoSetup) : '';
 }
 
 async function autoCommand(command, ...args) {
@@ -150,8 +150,18 @@ autoForm.addEventListener('submit', async event => {
     if (!tab?.url || !/^https:\/\/stridecsgo\.net\/cases(?:\/|[?#]|$)/.test(tab.url)) throw new Error();
     autoTab = tab.id;
     await extension.scripting.executeScript({ target: { tabId: autoTab }, files: ['auto-open.js'] });
-    if (selected) await autoCommand('prepare');
-    const preview = await autoCommand(selected ? 'previewInitial' : 'preview');
+    let preview;
+    if (selected) {
+      const deadline = Date.now() + 8000;
+      do {
+        await autoCommand('prepare');
+        preview = await autoCommand('previewInitial');
+        if (preview) break;
+        await new Promise(resolve => setTimeout(resolve, 250));
+      } while (Date.now() < deadline);
+    } else {
+      preview = await autoCommand('preview');
+    }
     const quantity = Number(autoForm.elements.quantity.value);
     if (!preview || quantity % preview.count !== 0 || !Number.isSafeInteger(quantity * preview.cost)) throw new Error();
     if (!confirm(messages.autoConfirm(number.format(quantity), number.format(quantity / preview.count * preview.cost)))) return;
