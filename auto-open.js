@@ -63,10 +63,20 @@ async function runCaseOpening(command, quantity = 0, expected = null) {
     let current = first;
     try {
       while (session.progress.done < quantity && !session.stop) {
-        if (location.href !== originalUrl || current.data.box !== first.data.box ||
-            current.data.count !== first.data.count || current.data.cost > first.data.cost ||
-            current.button.matches(':disabled, [aria-disabled="true"]')) throw new Error();
-
+        const readyDeadline = Date.now() + 10000;
+        let ready;
+        while (!session.stop) {
+          if (location.href !== originalUrl) throw new Error('failed');
+          ready = read();
+          if (ready && (ready.data.itemId !== current.data.itemId ||
+              ready.data.box !== first.data.box || ready.data.count !== first.data.count ||
+              ready.data.cost > first.data.cost)) throw new Error('changed');
+          if (ready && !ready.button.matches(':disabled, [aria-disabled="true"]')) break;
+          if (Date.now() >= readyDeadline) throw new Error('unavailable');
+          await new Promise(resolve => setTimeout(resolve, 250));
+        }
+        if (session.stop) break;
+        current = ready;
         current.button.click();
         const deadline = Date.now() + 45000;
         let next;
@@ -74,7 +84,7 @@ async function runCaseOpening(command, quantity = 0, expected = null) {
           await new Promise(resolve => setTimeout(resolve, 250));
           if (location.href !== originalUrl) throw new Error();
           next = read();
-          if (Date.now() >= deadline) throw new Error();
+          if (Date.now() >= deadline) throw new Error('unconfirmed');
         } while (!next || next.data.itemId === current.data.itemId);
         if (next.data.box !== first.data.box) throw new Error();
 
@@ -85,8 +95,9 @@ async function runCaseOpening(command, quantity = 0, expected = null) {
         current = next;
       }
       session.progress.state = session.progress.done === quantity ? 'complete' : 'stopped';
-    } catch {
-      session.progress.state = 'failed';
+    } catch (error) {
+      session.progress.state = ['changed', 'unavailable', 'unconfirmed'].includes(error.message)
+        ? error.message : 'failed';
     }
   }
 
