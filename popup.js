@@ -222,6 +222,14 @@ document.querySelector('#load-catalog').addEventListener('click', async event =>
 });
 
 const sessionRarity = document.querySelector('#session-rarity');
+const sessionSearch = document.querySelector('#session-search');
+sessionSearch.addEventListener('input', renderAuto);
+function matchesSessionSearch(drop) {
+  const query = sessionSearch.value.trim().toLowerCase();
+  if (/^#?\d+$/.test(query)) return drop.itemId === query.replace(/^#/, '');
+  const searchable = [drop.name, ...(drop.stickers ?? [])].join(' ').toLowerCase();
+  return query.split(/\s+/).every(word => searchable.includes(word));
+}
 const sellSessionItem = document.querySelector('#sell-session-item');
 const openDropInventory = document.querySelector('#open-drop-inventory');
 const openInventoryTab = document.querySelector('#show-inventory-tab');
@@ -284,7 +292,7 @@ openDropInventory.addEventListener('click', async () => {
     const tab = await openStrideTab('https://stridecsgo.net/inventory');
     try {
       const [{ result }] = await extension.scripting.executeScript({
-        target: { tabId: tab.id }, func: handleInventoryDrop, args: [drop.itemId, null, drop.name]
+        target: { tabId: tab.id }, func: handleInventoryDrop, args: [drop.itemId, null, drop.name, drop.float]
       });
       status.textContent = result === true ? messages.dropIdsCopied : messages.dropInventoryFilterError;
     } catch {
@@ -309,27 +317,32 @@ openDropInventory.addEventListener('click', async () => {
 });
 
 // A null price only fills the search field. A sale requires the exact ID and price.
-async function handleInventoryDrop(itemId, price, name) {
+async function handleInventoryDrop(itemId, price, name, float) {
   if (location.origin !== 'https://stridecsgo.net' || !/^\/inventory\/?$/.test(location.pathname) || !/^\d+$/.test(itemId)) return false;
   const controls = 'button, [role="button"]';
   const visible = node => node.checkVisibility({ visibilityProperty: true });
   const deadline = Date.now() + 12000;
   const normalize = value => value?.trim().replace(/\s+/g, ' ').toLowerCase();
   const expectedName = normalize(name);
+  const [weapon, finish] = normalize(name?.replace(/^(?:Souvenir\s+|StatTrak™\s*)/i, ''))?.split(/\s*\|\s*/, 2) ?? [];
+  const roundedFloat = float != null && Number.isFinite(Number(float)) ? Number(float).toFixed(6) : null;
   let opened = false;
   let searched = false;
   while (Date.now() < deadline) {
     if (!/^\/inventory\/?$/.test(location.pathname)) return false;
-    const cards = price === null ? [] : [...document.querySelectorAll(`[data-item-id="${itemId}"]`)].filter(visible);
+    const cards = [...document.querySelectorAll(`[data-item-id="${itemId}"]`)].filter(visible);
     const card = cards.length === 1 ? cards[0] : null;
-    const namedCards = price !== null && !card && expectedName
+    const namedCards = !card && expectedName
       ? [...document.querySelectorAll(controls)].filter(button => visible(button) &&
-        [...button.querySelectorAll('img[alt]')].some(image => normalize(image.alt) === expectedName))
+        button.querySelector('img') &&
+        (!roundedFloat || button.innerText.match(/\b[01]\.\d{6}\b/g)?.includes(roundedFloat)) &&
+        ([...button.querySelectorAll('img[alt]')].some(image => normalize(image.alt) === expectedName) ||
+          (finish && roundedFloat && normalize(button.innerText)?.includes(`${weapon} ${finish}`))))
       : [];
     const control = card?.closest(controls) ??
       (card?.querySelectorAll(controls).length === 1 ? card.querySelector(controls) : null) ??
       (namedCards.length === 1 ? namedCards[0] : null);
-    if (price !== null && control && !control.matches(':disabled, [aria-disabled="true"]')) {
+    if (control && !control.matches(':disabled, [aria-disabled="true"]')) {
       control.click();
       opened = true;
       break;
@@ -342,21 +355,21 @@ async function handleInventoryDrop(itemId, price, name) {
         const setValue = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set;
         setValue.call(search, name.replace(/^(?:Souvenir\s+|StatTrak™\s*)/i, '').split('|').at(-1).trim());
         search.dispatchEvent(new Event('input', { bubbles: true }));
-        if (price === null) return true;
         searched = true;
       }
     }
     await new Promise(resolve => setTimeout(resolve, 200));
   }
-  if (!opened) return 'itemNotFound';
+  if (!opened) return price === null && searched ? true : 'itemNotFound';
   const detailDeadline = Date.now() + 5000;
   while (Date.now() < detailDeadline) {
     if (!/^\/inventory\/?$/.test(location.pathname)) return false;
     const dialogs = [...document.querySelectorAll('dialog, [role="dialog"]')].filter(visible);
     const dialog = dialogs.length === 1 ? dialogs[0] : null;
     const id = dialog?.innerText.match(/\bItem ID\s*:?\s*(\d+)\b/i)?.[1];
-    if (id && id !== itemId) return 'itemNotFound';
+    if (id && id !== itemId) return price === null && searched ? true : 'itemNotFound';
     if (id === itemId) {
+      if (price === null) return true;
       const buttons = [...dialog.querySelectorAll(controls)].filter(button => {
         const amount = button.innerText.trim().match(/^(?:Quick Sell|Sell)\s+(\d+(?:[,\s]\d{3})*)$/i)?.[1];
         return amount && Number(amount.replace(/[,\s]/g, '')) === price && visible(button) &&
@@ -381,7 +394,7 @@ async function handleInventoryDrop(itemId, price, name) {
     }
     await new Promise(resolve => setTimeout(resolve, 200));
   }
-  return false;
+  return price === null && searched;
 }
 
 sellSessionItem.addEventListener('click', async () => {
@@ -401,7 +414,7 @@ sellSessionItem.addEventListener('click', async () => {
     if (submitted === false) {
       const tab = await openStrideTab('https://stridecsgo.net/inventory');
       const [{ result }] = await extension.scripting.executeScript({
-        target: { tabId: tab.id }, func: handleInventoryDrop, args: [drop.itemId, drop.quickSell, drop.name]
+        target: { tabId: tab.id }, func: handleInventoryDrop, args: [drop.itemId, drop.quickSell, drop.name, drop.float]
       });
       submitted = result;
     }
@@ -424,7 +437,8 @@ sellSessionItem.addEventListener('click', async () => {
 
 document.querySelector('#select-visible-drops').addEventListener('click', () => {
   for (const drop of autoProgress?.drops ?? []) {
-    if (drop.itemId && !isSoldDrop(drop) && (!sessionRarity.value || drop.rarity === sessionRarity.value)) selectedDrops.add(drop.itemId);
+    if (drop.itemId && !isSoldDrop(drop) && matchesSessionSearch(drop) &&
+        (!sessionRarity.value || drop.rarity === sessionRarity.value)) selectedDrops.add(drop.itemId);
   }
   renderedDrops = '';
   renderAuto();
@@ -478,7 +492,7 @@ function renderAuto() {
   }
   if (!drops.length) delete details.dataset.opened;
   const rarity = sessionRarity.value;
-  const signature = JSON.stringify([drops, rarity, messages.allDropRarities]);
+  const signature = JSON.stringify([drops, rarity, sessionSearch.value, messages.allDropRarities]);
   if (renderedDrops !== signature) {
     renderedDrops = signature;
     const rarities = [...new Set(drops.map(drop => drop.rarity).filter(Boolean))];
@@ -487,6 +501,7 @@ function renderAuto() {
     const items = document.createDocumentFragment();
     for (const drop of drops) {
       if (sessionRarity.value && drop.rarity !== sessionRarity.value) continue;
+      if (!matchesSessionSearch(drop)) continue;
       const item = document.createElement('li');
       const label = document.createElement('label');
       const checkbox = document.createElement('input');
