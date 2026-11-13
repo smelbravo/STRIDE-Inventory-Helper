@@ -57,14 +57,17 @@ function prepareCase(selectSingle, expected, diagnose = false) {
   const normalize = value => value.replace(/[\u200B-\u200F\u2060\uFEFF]/g, '').trim().replace(/\s+/g, ' ');
   const buttons = [...document.querySelectorAll('button, [role="button"]')].filter(button => button.checkVisibility());
   const labels = button => [button.innerText, button.textContent, button.getAttribute('aria-label') ?? ''].map(normalize);
-  const price = /^OPEN\s*[^\p{L}\d]*(\d+(?:[, ]\d{3})*)$/iu;
-  const open = buttons.find(button => labels(button).some(label => price.test(label)));
+  const price = /^OPEN\s*(?:[^\p{L}\d]*|[^\p{L}\d]*coins?\s*)(\d+(?:[, .]\d{3})*)(?:\s*coins?)?$/iu;
+  const pricedButtons = buttons.flatMap(button => {
+    const match = labels(button).map(label => label.match(price)).find(Boolean);
+    return match ? [{ button, cost: Number(match[1].replace(/[, .]/g, '')) }] : [];
+  });
+  const { button: open, cost } = pricedButtons.length === 1 ? pricedButtons[0] : {};
   const failure = !open ? 'autoOpenControl'
     : open.matches(':disabled, [aria-disabled="true"]') ? 'autoOpenDisabled' : null;
   if (failure) return diagnose ? { failure } : null;
-  const cost = Number(labels(open).find(label => price.test(label)).match(price)[1].replace(/[, ]/g, ''));
-  const unitPrices = [...normalize(document.body.innerText).matchAll(/(?<!\d)(\d+(?:[, ]\d{3})*)\s*per case\b/gi)]
-    .map(match => Number(match[1].replace(/[, ]/g, '')));
+  const unitPrices = [...normalize(document.body.innerText).matchAll(/(?<!\d)(\d+(?:[, .]\d{3})*)\s*per case\b/gi)]
+    .map(match => Number(match[1].replace(/[, .]/g, '')));
   if (selectSingle && !unitPrices.includes(cost)) {
     const quantityPattern = /^(?:[×✕✖x]\s*)?([1235])$/i;
     for (let row = open.parentElement; row && row !== document.body; row = row.parentElement) {
