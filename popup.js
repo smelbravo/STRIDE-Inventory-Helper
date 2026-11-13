@@ -160,9 +160,12 @@ autoForm.addEventListener('submit', async event => {
       if (!granted) throw new Error();
       failure = 'autoTabError';
     }
-    const tab = selected ? await openStrideTab(selected.url, true)
-      : (await extension.tabs.query({ active: true, currentWindow: true }))[0];
-    if (selected) openedTab = tab.id;
+    const [activeTab] = await extension.tabs.query({ active: true, currentWindow: true });
+    let tab = activeTab;
+    if (selected && activeTab?.url?.split(/[?#]/, 1)[0] !== selected.url) {
+      tab = await openStrideTab(selected.url, true);
+      openedTab = tab.id;
+    }
     if (/^https:\/\/stridecsgo\.net\/login(?:[/?#]|$)/.test(tab?.url ?? '')) {
       autoProgress = null;
       autoError = 'autoLogin';
