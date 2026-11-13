@@ -1,4 +1,23 @@
 // Runs in the active tab on demand and reads only the visible results.
+function readSouvenirStickers(modal) {
+  const stickerLabel = /^sticker\s*(?:[|:·–-]\s*|\s+)(.+)$/i;
+  const stickerGroup = '[data-stickers], [data-sticker-slot], [aria-label="Stickers" i]';
+  const names = [];
+  for (const image of modal.querySelectorAll('img')) {
+    if (!image.checkVisibility({ visibilityProperty: true })) continue;
+    const control = image.closest('button, [role="button"]');
+    const labels = [image.getAttribute('data-sticker-name'), image.alt, image.title,
+      image.getAttribute('aria-label'), control?.getAttribute('data-sticker-name'),
+      control?.getAttribute('aria-label'), control?.title];
+    const explicit = labels.map(label => label?.trim().match(stickerLabel)?.[1]).find(Boolean);
+    const named = image.getAttribute('data-sticker-name') ?? control?.getAttribute('data-sticker-name');
+    const contextual = image.closest(stickerGroup) ? labels.find(label => label?.trim()) : null;
+    const name = (explicit ?? named ?? contextual)?.trim().replace(/\s+/g, ' ');
+    if (name && !/^(?:stickers?|sticker slot\s*\d+|empty)$/i.test(name)) names.push(name);
+  }
+  return names;
+}
+
 function readStrideResult(includeControls = false, caseName = '') {
   const visible = element => element.checkVisibility({ visibilityProperty: true });
   const text = element => element.innerText.trim().replace(/\s+/g, ' ');
@@ -52,8 +71,10 @@ function readStrideResult(includeControls = false, caseName = '') {
       .filter(control => visible(control) && /^Sell\s+\d+(?:[, ]\d{3})*$/i.test(text(control)));
     const sellControl = sellControls.length === 1 ? sellControls[0] : null;
     const sellValue = sellControl ? text(sellControl).match(sell)[1] : undefined;
+    const stickers = modal && (/^Souvenir\s/i.test(title ?? '') || /\bSouvenir\s+Yes\b/i.test(details))
+      ? readSouvenirStickers(modal) : [];
     return title && itemId ? {
-      name: title, itemId, rarity, float, seed, finish,
+      name: title, itemId, rarity, float, seed, finish, stickers,
       quickSell: sellValue === undefined ? null : Number(sellValue.replace(/[, ]/g, ''))
     } : null;
   };

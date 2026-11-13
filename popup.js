@@ -246,6 +246,7 @@ function dropSummary(drop) {
   const pattern = tier ? (tier.tier ? `${tier.gemKind === 'gold' ? 'Gold Gem' : 'Blue Gem'} · Tier ${tier.tier}` : tier.label)
     : globalThis.strideDopplerPhase(drop.name, drop.finish);
   return [drop.name, pattern, drop.rarity, '#' + drop.itemId,
+    drop.stickers?.length ? messages.dropStickers + ': ' + drop.stickers.join(' / ') : '',
     drop.float == null ? '' : 'Float ' + drop.float,
     drop.seed == null ? '' : messages.dropSeed + ' ' + drop.seed,
     drop.quickSell == null ? '' : 'Quick Sell ' + number.format(drop.quickSell)

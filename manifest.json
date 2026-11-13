@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "STRIDE Inventory Helper",
-  "version": "0.5.35",
+  "version": "0.5.36",
   "content_scripts": [{
     "matches": ["https://stridecsgo.net/*"],
     "js": ["skin-patterns.js", "skin-cards.js"],
