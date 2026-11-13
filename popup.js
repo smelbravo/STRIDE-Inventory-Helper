@@ -96,15 +96,21 @@ async function readCaseCatalog(categoryOnly = false) {
   for (let parent = cards[0].anchor.parentElement; parent; parent = parent.parentElement) {
     positions.set(parent, parent.scrollTop);
   }
+  const scroller = [...positions.keys()].find(element =>
+    element.scrollHeight > element.clientHeight &&
+    /auto|scroll/.test(getComputedStyle(element).overflowY)) ?? document.scrollingElement;
+  if (scroller && !positions.has(scroller)) positions.set(scroller, scroller.scrollTop);
   const found = new Map();
   let stable = 0;
   try {
-    for (let step = 0; step < 45 && stable < 5; step++) {
+    if (scroller) scroller.scrollTop = 0;
+    for (let step = 0; step < 100 && stable < 10; step++) {
       const current = readCards();
       const before = found.size;
       for (const { entry } of current) found.set(entry.url, entry);
-      stable = found.size === before ? stable + 1 : 0;
-      current.at(-1)?.anchor.scrollIntoView({ block: 'end', behavior: 'instant' });
+      const atEnd = !scroller || scroller.scrollTop + scroller.clientHeight >= scroller.scrollHeight - 2;
+      stable = atEnd && found.size === before ? stable + 1 : 0;
+      if (scroller) scroller.scrollBy({ top: Math.max(1, scroller.clientHeight * 0.8), behavior: 'instant' });
       await new Promise(resolve => setTimeout(resolve, 300));
     }
     for (const { entry } of readCards()) found.set(entry.url, entry);
