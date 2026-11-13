@@ -3,9 +3,10 @@ function readStrideResult(includeControls = false) {
   const visible = element => element.checkVisibility({ visibilityProperty: true });
   const text = element => element.innerText.trim().replace(/\s+/g, ' ');
   const buttons = [...document.querySelectorAll('button, [role="button"]')].filter(visible);
-  const sell = /^Sell all\s+(\d+(?:[, ]\d{3})*)$/i;
+  const sell = /^Sell(?: all)?\s+(\d+(?:[, ]\d{3})*)$/i;
   const repeat = /^Open\s+(\d+)\s+more\D+(\d+(?:[, ]\d{3})*)$/i;
-  const sellButtons = buttons.filter(button => sell.test(text(button)));
+  const all = buttons.filter(button => /^Sell all\s/i.test(text(button)) && sell.test(text(button)));
+  const sellButtons = all.length ? all : buttons.filter(button => sell.test(text(button)));
   if (sellButtons.length !== 1) return null;
   const sellButton = sellButtons[0];
   let container = sellButton.parentElement;
@@ -24,6 +25,7 @@ function readStrideResult(includeControls = false) {
   if (!repeatMatch || headings.length !== 1) return null;
   const box = text(headings[0]);
   const count = Number(repeatMatch[1]);
+  if (!all.length && count !== 1) return null;
   const cost = Number(repeatMatch[2].replace(/[, ]/g, ''));
   const value = Number(text(sellButton).match(sell)[1].replace(/[, ]/g, ''));
   if (!box || box.length > 140 || ![1, 2, 3, 5].includes(count) ||
@@ -35,7 +37,29 @@ function readStrideResult(includeControls = false) {
     container.parentElement?.parentElement?.innerText.match(/Item ID\s+(\d+)/i);
   const button = buttons.find(button => container.contains(button) && repeat.test(text(button)));
   if (!id || !button) return null;
-  return { data: { ...data, itemId: id[1] }, button };
+  let modal = container;
+  while (modal && !/Item ID\s+\d+/i.test(modal.innerText)) modal = modal.parentElement;
+  const drops = [...(modal?.querySelectorAll('button img[alt], [role="button"] img[alt]') ?? [])]
+    .filter(image => visible(image) && image.alt.trim())
+    .map(image => image.alt.trim());
+  if (!drops.length && count === 1) {
+    const title = modal?.querySelector('h1,h2,h3,[role="heading"]')?.innerText.trim();
+    if (title) drops.push(title);
+  }
+  return { data: { ...data, itemId: id[1] }, button, drops };
+}
+
+function prepareCase(selectSingle = false) {
+  const heading = document.querySelector('h1');
+  const buttons = [...document.querySelectorAll('button')].filter(button => button.checkVisibility());
+  const single = buttons.find(button => /^[×x]\s*1$/i.test(button.innerText.trim()));
+  if (selectSingle && single) single.click();
+  const open = buttons.find(button => /^OPEN\s+[^\d]*\d[\d, ]*$/i.test(button.innerText.trim()));
+  if (!heading || !single || !open || open.disabled) return null;
+  const cost = Number(open.innerText.match(/\d[\d, ]*$/)[0].replace(/[, ]/g, ''));
+  const unitPrice = document.body.innerText.match(/(?:^|\n)[^\S\n]*(\d+(?:[, ]\d{3})*)\s+per case\b/i);
+  if (!unitPrice || Number(unitPrice[1].replace(/[, ]/g, '')) !== cost || !Number.isSafeInteger(cost) || cost <= 0) return null;
+  return { box: heading.innerText.trim(), count: 1, cost, button: open };
 }
 
 async function runCaseOpening(command, quantity = 0, expected = null) {
@@ -47,7 +71,15 @@ async function runCaseOpening(command, quantity = 0, expected = null) {
   }
 
   const read = () => readStrideResult(true);
-  const first = read();
+  if (command === 'prepare') {
+    prepareCase(true);
+    return null;
+  }
+  const initial = expected?.initial || command === 'previewInitial' ? prepareCase() : null;
+  const first = initial
+    ? { data: { box: initial.box, count: 1, cost: initial.cost, initial: true }, button: initial.button }
+    : read();
+  if (command === 'previewInitial') return initial ? first.data : null;
   if (command === 'preview') return first?.data ?? null;
   if (globalThis[key]?.progress.state === 'running' || !first ||
       JSON.stringify(first.data) !== JSON.stringify(expected) ||
@@ -67,7 +99,12 @@ async function runCaseOpening(command, quantity = 0, expected = null) {
         let ready;
         while (!session.stop) {
           if (location.href !== originalUrl) throw new Error('failed');
-          ready = read();
+          if (current.data.initial) {
+            const control = prepareCase();
+            ready = control && { data: { box: control.box, count: 1, cost: control.cost, initial: true }, button: control.button };
+          } else {
+            ready = read();
+          }
           if (ready && (ready.data.itemId !== current.data.itemId ||
               ready.data.box !== first.data.box || ready.data.count !== first.data.count ||
               ready.data.cost > first.data.cost)) throw new Error('changed');
@@ -89,7 +126,7 @@ async function runCaseOpening(command, quantity = 0, expected = null) {
         if (next.data.box !== first.data.box) throw new Error();
 
         const { box, count, cost } = current.data;
-        const record = { box, count, cost, value: next.data.value, createdAt: Date.now() };
+        const record = { box, count, cost, value: next.data.value, drops: next.drops, createdAt: Date.now() };
         await store.set({ ['opening:' + next.data.itemId]: record });
         session.progress.done += count;
         current = next;

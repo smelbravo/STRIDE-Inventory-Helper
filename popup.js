@@ -32,6 +32,68 @@ let autoTab;
 let autoBusy = false;
 let autoProgress;
 let autoError = false;
+const picker = document.querySelector('#case-picker');
+const caseSearch = document.querySelector('#case-search');
+const catalogStatus = document.querySelector('#catalog-status');
+let catalog = [];
+
+function renderCatalog() {
+  const selected = picker.value;
+  const query = caseSearch.value.trim().toLowerCase();
+  const matching = catalog.filter(entry => entry.name.toLowerCase().includes(query));
+  picker.replaceChildren(new Option(messages.chooseCase, ''), ...matching.map(entry => new Option(entry.name, entry.url)));
+  if (matching.some(entry => entry.url === selected)) picker.value = selected;
+  document.querySelector('#catalog-label').hidden = !catalog.length;
+  caseSearch.placeholder = messages.filter;
+}
+
+async function openStrideTab(url) {
+  const tab = await extension.tabs.create({ url, active: false });
+  const deadline = Date.now() + 20000;
+  while (Date.now() < deadline) {
+    const current = await extension.tabs.get(tab.id);
+    if (current.status === 'complete' && current.url !== 'about:blank') return current;
+    await new Promise(resolve => setTimeout(resolve, 250));
+  }
+  await extension.tabs.remove(tab.id).catch(() => {});
+  throw new Error();
+}
+
+caseSearch.addEventListener('input', renderCatalog);
+document.querySelector('#load-catalog').addEventListener('click', async event => {
+  const button = event.currentTarget;
+  button.disabled = true;
+  catalogStatus.textContent = '';
+  let catalogTab;
+  try {
+    const tab = await openStrideTab('https://stridecsgo.net/cases');
+    catalogTab = tab.id;
+    let entries = [];
+    for (let attempt = 0; attempt < 16 && !entries.length; attempt++) {
+      const [{ result }] = await extension.scripting.executeScript({
+        target: { tabId: tab.id },
+        func: () => [...document.querySelectorAll('a[href]')].flatMap(anchor => {
+          const url = new URL(anchor.href);
+          if (url.origin !== location.origin || !/^\/cases\/[^/]+\/?$/.test(url.pathname)) return [];
+          const name = anchor.querySelector('h2,h3,h4')?.innerText.trim() ||
+            anchor.querySelector('img[alt]')?.alt.trim() || anchor.innerText.trim().split('\n')[0];
+          return name ? [{ name, url: url.origin + url.pathname }] : [];
+        })
+      });
+      entries = result;
+      if (!entries.length) await new Promise(resolve => setTimeout(resolve, 250));
+    }
+    if (!entries.length) throw new Error();
+    catalog = [...new Map(entries.map(entry => [entry.url, entry])).values()].sort((a, b) => a.name.localeCompare(b.name));
+    await extension.storage.local.set({ catalog });
+    renderCatalog();
+  } catch {
+    catalogStatus.textContent = messages.catalogError;
+  } finally {
+    if (catalogTab !== undefined) await extension.tabs.remove(catalogTab).catch(() => {});
+    button.disabled = false;
+  }
+});
 
 function renderAuto() {
   autoForm.querySelector('[type="submit"]').disabled = autoBusy || autoProgress?.state === 'running';
@@ -53,22 +115,30 @@ autoForm.addEventListener('submit', async event => {
   event.preventDefault();
   autoBusy = true;
   renderAuto();
+  let openedTab;
   try {
-    const [tab] = await extension.tabs.query({ active: true, currentWindow: true });
+    const selected = catalog.find(entry => entry.url === picker.value);
+    const tab = selected ? await openStrideTab(selected.url)
+      : (await extension.tabs.query({ active: true, currentWindow: true }))[0];
+    if (selected) openedTab = tab.id;
     if (!tab?.url || !/^https:\/\/stridecsgo\.net\/cases(?:\/|[?#]|$)/.test(tab.url)) throw new Error();
     autoTab = tab.id;
     await extension.scripting.executeScript({ target: { tabId: autoTab }, files: ['auto-open.js'] });
-    const preview = await autoCommand('preview');
+    if (selected) await autoCommand('prepare');
+    const preview = await autoCommand(selected ? 'previewInitial' : 'preview');
     const quantity = Number(autoForm.elements.quantity.value);
     if (!preview || quantity % preview.count !== 0 || !Number.isSafeInteger(quantity * preview.cost)) throw new Error();
     if (!confirm(messages.autoConfirm(number.format(quantity), number.format(quantity / preview.count * preview.cost)))) return;
     autoProgress = await autoCommand('start', quantity, preview);
     if (!autoProgress) throw new Error();
+    openedTab = undefined;
+    await extension.storage.local.set({ openingTab: autoTab });
     autoError = false;
   } catch {
     autoError = true;
     autoProgress = null;
   } finally {
+    if (openedTab !== undefined) await extension.tabs.remove(openedTab).catch(() => {});
     autoBusy = false;
     renderAuto();
   }
@@ -87,7 +157,9 @@ autoStop.addEventListener('click', async () => {
 async function refreshAuto() {
   if (autoBusy) return;
   try {
-    const [tab] = await extension.tabs.query({ active: true, currentWindow: true });
+    const { openingTab } = await extension.storage.local.get('openingTab');
+    const tab = openingTab !== undefined ? await extension.tabs.get(openingTab)
+      : (await extension.tabs.query({ active: true, currentWindow: true }))[0];
     if (!tab?.url || !/^https:\/\/stridecsgo\.net\/cases(?:\/|[?#]|$)/.test(tab.url)) return;
     autoTab = tab.id;
     autoProgress = await autoCommand('status');
@@ -120,6 +192,7 @@ function applyLanguage(nextLanguage) {
     element.textContent = messages[element.dataset.text];
   }
   setStatus(statusKey);
+  renderCatalog();
   renderAuto();
   render();
 }
@@ -140,6 +213,11 @@ function render() {
   historyList.replaceChildren(...visible.slice(0, 50).map(record => {
     const entry = document.createElement('li');
     entry.textContent = `${record.box} ×${number.format(record.count)} · ${date.format(record.createdAt)} · ${messages.balance(number.format(record.value - record.cost))}`;
+    if (record.drops?.length) {
+      const drops = document.createElement('div');
+      drops.textContent = record.drops.join(' · ');
+      entry.append(drops);
+    }
     return entry;
   }));
   if (visible.length > 50) {
@@ -241,7 +319,8 @@ languageSelect.addEventListener('change', async () => {
 async function initialize() {
   const defaultLanguage = /^pt(?:-|$)/i.test(navigator.language) ? 'pt-PT' : 'en';
   try {
-    const stored = await extension.storage.local.get('language');
+    const stored = await extension.storage.local.get(['language', 'catalog']);
+    catalog = stored.catalog ?? [];
     await refreshRecords();
     applyLanguage(stored.language ?? defaultLanguage);
     save.disabled = false;

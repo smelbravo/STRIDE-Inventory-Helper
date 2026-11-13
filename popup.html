@@ -18,8 +18,13 @@
     <div class="card">
     <header class="section-heading">
     <h2 id="auto-title" data-text="autoTitle">Auto Case Open</h2>
-    <a data-text="casesTab" href="https://stridecsgo.net/cases" target="_blank" rel="noopener noreferrer">Cases</a>
+    <button id="load-catalog" type="button" data-text="loadCatalog">Load case catalog</button>
     </header>
+    <label id="catalog-label" hidden><span data-text="box">Case</span>
+      <input id="case-search" type="search">
+      <select id="case-picker"></select>
+    </label>
+    <p id="catalog-status" role="status"></p>
     <form id="auto-open">
       <label class="wide"><span data-text="autoCount">Additional cases</span><input name="quantity" type="number" min="1" max="1000000" required></label>
       <button type="submit" data-text="autoStart">Start</button>

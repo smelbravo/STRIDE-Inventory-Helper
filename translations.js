@@ -1,5 +1,8 @@
 const translations = {
   en: {
+    loadCatalog: 'Load case catalog',
+    catalogError: 'Open STRIDE and sign in, then try loading the catalog again.',
+    chooseCase: 'Choose a case',
     casesTab: 'Cases',
     settingsTab: 'Settings',
     manualTitle: 'Record a batch',
@@ -39,6 +42,9 @@ const translations = {
     csvFilename: 'stride-openings.csv'
   },
   'pt-PT': {
+    loadCatalog: 'Carregar catálogo',
+    catalogError: 'Abre o STRIDE, inicia sessão e volta a carregar o catálogo.',
+    chooseCase: 'Escolhe uma caixa',
     casesTab: 'Caixas',
     settingsTab: 'Definições',
     manualTitle: 'Registar um lote',
