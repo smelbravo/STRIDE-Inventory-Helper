@@ -51,7 +51,7 @@ const catalogStatus = document.querySelector('#catalog-status');
 let catalog = [];
 const catalogVersion = 3;
 
-function readCaseCatalog() {
+function readCaseCatalog(requestedCategory) {
   const categories = {
     'weapon case': 'weapon cases', 'souvenir package': 'souvenir packages',
     collection: 'collections', agent: 'agents', 'sticker capsule': 'sticker capsules',
@@ -67,7 +67,7 @@ function readCaseCatalog() {
     .map(element => category(clean(element.innerText).replace(/\s+[\d,]+$/, ''))).find(Boolean);
   return [...document.querySelectorAll('a[href]')].flatMap(anchor => {
     const url = new URL(anchor.href);
-    if (url.origin !== location.origin || !/^\/cases\/[^/]+\/?$/.test(url.pathname)) return [];
+    if (url.origin !== location.origin || !/^\/cases\/(?:[^/]+\/)*[^/]+\/?$/.test(url.pathname)) return [];
 
     const lines = anchor.innerText.split('\n').map(clean).filter(Boolean);
     const categoryIndex = lines.findIndex(category);
@@ -75,7 +75,9 @@ function readCaseCatalog() {
     const headings = [...anchor.querySelectorAll('h2,h3,h4')].map(heading => clean(heading.innerText));
     const imageName = clean(anchor.querySelector('img[alt]')?.alt);
     const name = [cardName, ...headings, imageName, ...lines].find(isName);
-    const kind = categoryIndex < 0 ? (activeCategory ?? '') : category(lines[categoryIndex]);
+    const inferred = /\bcapsule\b/i.test(name) ? 'sticker capsules'
+      : /\bsouvenir package\b/i.test(name) ? 'souvenir packages' : '';
+    const kind = categoryIndex < 0 ? (activeCategory || inferred || requestedCategory) : category(lines[categoryIndex]);
     return name ? [{ name, kind, url: url.origin + url.pathname }] : [];
   });
 }
@@ -130,7 +132,8 @@ document.querySelector('#load-catalog').addEventListener('click', async event =>
     for (let attempt = 0; attempt < 16 && !entries.length; attempt++) {
       const [{ result }] = await extension.scripting.executeScript({
         target: { tabId: tab.id },
-        func: readCaseCatalog
+        func: readCaseCatalog,
+        args: [tab.id === activeTab?.id ? caseCategory.value : '']
       });
       entries = result;
       if (!entries.length) await new Promise(resolve => setTimeout(resolve, 250));
