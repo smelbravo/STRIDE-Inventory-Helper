@@ -25,6 +25,8 @@ With the results still open on the STRIDE case page, open the extension and clic
 
 ### Built-in STRIDE features
 
+To use **Auto Case Open**, leave a case result open and enter the number of additional cases in the extension. The quantity must be a multiple of the current **Open … more** batch size. Confirm the maximum cost to begin. Keep the STRIDE tab open. To stop, reopen the extension on that tab and click **Stop**. An opening already in progress may finish and be recorded.
+
 STRIDE inventory already provides float, rarity and wear, search, pattern and availability filters, sorting, and quick sell. Item details show the seed and offer 3D inspection. Cases can be bought into inventory or opened in batches of up to five, with an option to skip the animation and sell drops individually or together. Trades, the market, and the skin database have their own pages. The extension focuses on your personal opening history.
 
 ## Português (Portugal)
@@ -49,5 +51,7 @@ Filtra pelo nome da caixa para consultar os totais correspondentes. **Exportar C
 Com os resultados ainda abertos na página da caixa no STRIDE, abre a extensão e carrega em **Preencher a partir do STRIDE**. A extensão lê o valor dos drops em **Sell all** e usa o botão **Open … more** para sugerir a quantidade e o custo. Confirma os valores do lote que abriste e carrega em **Registar abertura**.
 
 ### Funcionalidades do STRIDE
+
+Para usar a **Abertura automática de caixas**, deixa os resultados de um lote abertos e introduz na extensão o número de caixas adicionais. A quantidade deve ser um múltiplo do tamanho de lote indicado em **Open … more**. Confirma o custo máximo e mantém o separador do STRIDE aberto. Para parar, volta a abrir a extensão nesse separador e carrega em **Parar**. Um lote já iniciado pode terminar e ficar registado.
 
 O inventário já apresenta float, raridade e condição, pesquisa, filtros de padrões e disponibilidade, ordenação e venda rápida. O detalhe de um item apresenta o seed e a inspeção 3D. As caixas já têm compra para inventário, abertura múltipla até cinco, opção de saltar a animação e venda individual ou em lote dos drops. As trocas, o mercado e a base de skins têm interfaces próprias. A extensão concentra-se no histórico pessoal de aberturas.

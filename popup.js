@@ -14,6 +14,84 @@ let number;
 let date;
 let statusKey;
 let records = [];
+const autoForm = document.querySelector('#auto-open');
+const autoStatus = document.querySelector('#auto-status');
+const autoStop = document.querySelector('#auto-stop');
+let autoTab;
+let autoBusy = false;
+let autoProgress;
+let autoError = false;
+
+function renderAuto() {
+  autoForm.querySelector('[type="submit"]').disabled = autoBusy || autoProgress?.state === 'running';
+  autoStop.disabled = autoProgress?.state !== 'running';
+  autoStatus.textContent = autoProgress
+    ? messages.autoStatus(autoProgress.done, autoProgress.total, messages.autoStates[autoProgress.state])
+    : autoError ? messages.autoSetup : '';
+}
+
+async function autoCommand(command, ...args) {
+  const [{ result } = {}] = await extension.scripting.executeScript({
+    target: { tabId: autoTab }, func: (action, params) => runCaseOpening(action, ...params),
+    args: [command, args]
+  });
+  return result;
+}
+
+autoForm.addEventListener('submit', async event => {
+  event.preventDefault();
+  autoBusy = true;
+  renderAuto();
+  try {
+    const [tab] = await extension.tabs.query({ active: true, currentWindow: true });
+    if (!tab?.url || !/^https:\/\/stridecsgo\.net\/cases(?:\/|[?#]|$)/.test(tab.url)) throw new Error();
+    autoTab = tab.id;
+    await extension.scripting.executeScript({ target: { tabId: autoTab }, files: ['auto-open.js'] });
+    const preview = await autoCommand('preview');
+    const quantity = Number(autoForm.elements.quantity.value);
+    if (!preview || quantity % preview.count !== 0 || !Number.isSafeInteger(quantity * preview.cost)) throw new Error();
+    if (!confirm(messages.autoConfirm(number.format(quantity), number.format(quantity / preview.count * preview.cost)))) return;
+    autoProgress = await autoCommand('start', quantity, preview);
+    if (!autoProgress) throw new Error();
+    autoError = false;
+  } catch {
+    autoError = true;
+    autoProgress = null;
+  } finally {
+    autoBusy = false;
+    renderAuto();
+  }
+});
+
+autoStop.addEventListener('click', async () => {
+  try {
+    await autoCommand('stop');
+  } catch {
+    autoProgress = null;
+    autoError = true;
+    renderAuto();
+  }
+});
+
+async function refreshAuto() {
+  if (autoBusy) return;
+  try {
+    const [tab] = await extension.tabs.query({ active: true, currentWindow: true });
+    if (!tab?.url || !/^https:\/\/stridecsgo\.net\/cases(?:\/|[?#]|$)/.test(tab.url)) return;
+    autoTab = tab.id;
+    autoProgress = await autoCommand('status');
+    renderAuto();
+  } catch {
+    // This tab has no opening session yet.
+  }
+}
+
+async function refreshRecords() {
+  const stored = await extension.storage.local.get();
+  const automatic = Object.entries(stored).filter(([key]) => key.startsWith('opening:')).map(([, record]) => record);
+  records = [...(stored.records ?? []), ...automatic].sort((a, b) => b.createdAt - a.createdAt);
+}
+
 
 function setStatus(key) {
   statusKey = key;
@@ -31,6 +109,7 @@ function applyLanguage(nextLanguage) {
     element.textContent = messages[element.dataset.text];
   }
   setStatus(statusKey);
+  renderAuto();
   render();
 }
 
@@ -78,9 +157,10 @@ form.addEventListener('submit', async event => {
     createdAt: Date.now()
   };
   try {
-    const updated = [record, ...records];
+    const stored = await extension.storage.local.get("records");
+    const updated = [record, ...(stored.records ?? [])];
     await extension.storage.local.set({ records: updated });
-    records = updated;
+    await refreshRecords();
     form.elements.value.value = '';
     filter.value = '';
     render();
@@ -93,39 +173,6 @@ form.addEventListener('submit', async event => {
 });
 
 filter.addEventListener('input', render);
-
-// Runs in the active tab on demand and reads only the visible results.
-function readStrideResult() {
-  const visible = element => element.checkVisibility({ visibilityProperty: true });
-  const text = element => element.innerText.trim().replace(/\s+/g, ' ');
-  const buttons = [...document.querySelectorAll('button, [role="button"]')].filter(visible);
-  const sell = /^Sell all\s+(\d+(?:[, ]\d{3})*)$/i;
-  const repeat = /^Open\s+(\d+)\s+more\D+(\d+(?:[, ]\d{3})*)$/i;
-  const sellButtons = buttons.filter(button => sell.test(text(button)));
-  if (sellButtons.length !== 1) return null;
-  const sellButton = sellButtons[0];
-  let container = sellButton.parentElement;
-  let repeatMatch;
-  while (container && container !== document.body) {
-    const matches = buttons.filter(button => container.contains(button))
-      .map(button => text(button).match(repeat)).filter(Boolean);
-    if (matches.length > 1) return null;
-    if (matches.length === 1) {
-      [repeatMatch] = matches;
-      break;
-    }
-    container = container.parentElement;
-  }
-  const headings = [...document.querySelectorAll('h1')].filter(visible);
-  if (!repeatMatch || headings.length !== 1) return null;
-  const box = text(headings[0]);
-  const count = Number(repeatMatch[1]);
-  const cost = Number(repeatMatch[2].replace(/[, ]/g, ''));
-  const value = Number(text(sellButton).match(sell)[1].replace(/[, ]/g, ''));
-  if (!box || box.length > 140 || ![1, 2, 3, 5].includes(count) ||
-      !Number.isSafeInteger(cost) || cost > 1e12 || !Number.isSafeInteger(value) || value > 1e12) return null;
-  return { box, count, cost, value };
-}
 
 importButton.addEventListener('click', async () => {
   importButton.disabled = true;
@@ -183,8 +230,8 @@ languageSelect.addEventListener('change', async () => {
 async function initialize() {
   const defaultLanguage = /^pt(?:-|$)/i.test(navigator.language) ? 'pt-PT' : 'en';
   try {
-    const stored = await extension.storage.local.get(['records', 'language']);
-    records = stored.records ?? [];
+    const stored = await extension.storage.local.get('language');
+    await refreshRecords();
     applyLanguage(stored.language ?? defaultLanguage);
     save.disabled = false;
     importButton.disabled = false;
@@ -196,3 +243,11 @@ async function initialize() {
 }
 
 initialize();
+
+void refreshAuto();
+setInterval(refreshAuto, 750);
+extension.storage.onChanged.addListener(async changes => {
+  if (!Object.keys(changes).some(key => key.startsWith('opening:'))) return;
+  await refreshRecords();
+  render();
+});

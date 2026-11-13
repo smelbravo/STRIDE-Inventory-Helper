@@ -16,6 +16,15 @@
     </select>
   </label>
   <a data-text="cases" href="https://stridecsgo.net/cases" target="_blank" rel="noopener noreferrer">Open cases on STRIDE ↗</a>
+  <section aria-labelledby="auto-title">
+    <h2 id="auto-title" data-text="autoTitle">Auto Case Open</h2>
+    <form id="auto-open">
+      <label class="wide"><span data-text="autoCount">Additional cases</span><input name="quantity" type="number" min="1" max="1000000" required></label>
+      <button type="submit" data-text="autoStart">Start</button>
+      <button id="auto-stop" type="button" data-text="autoStop">Stop</button>
+    </form>
+    <p id="auto-status" role="status"></p>
+  </section>
   <form id="record">
     <button id="import-result" class="wide" type="button" data-text="importResult" disabled>Fill from STRIDE results</button>
     <label class="wide"><span data-text="box">Case</span><input name="box" required maxlength="140"></label>
@@ -34,5 +43,6 @@
   <p id="status" role="status"></p>
 </main>
 <script src="translations.js" defer></script>
+<script src="auto-open.js" defer></script>
 <script src="popup.js" defer></script>
 </html>

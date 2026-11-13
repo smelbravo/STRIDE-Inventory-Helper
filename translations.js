@@ -1,5 +1,13 @@
 const translations = {
   en: {
+    autoTitle: 'Auto Case Open',
+    autoCount: 'Additional cases',
+    autoStart: 'Start',
+    autoStop: 'Stop',
+    autoStatus: (done, total, state) => `${done}/${total} · ${state}`,
+    autoStates: { running: 'Opening', complete: 'Complete', stopped: 'Stopped', failed: 'Stopped: could not verify the next batch' },
+    autoSetup: 'Leave a results window open. Enter a multiple of its “Open … more” quantity.',
+    autoConfirm: (count, cost) => `Open ${count} additional cases for up to ${cost} coins?`,
     language: 'Language',
     cases: 'Open cases on STRIDE ↗',
     box: 'Case',
@@ -28,6 +36,14 @@ const translations = {
     csvFilename: 'stride-openings.csv'
   },
   'pt-PT': {
+    autoTitle: 'Abertura automática de caixas',
+    autoCount: 'Caixas adicionais',
+    autoStart: 'Iniciar',
+    autoStop: 'Parar',
+    autoStatus: (done, total, state) => `${done}/${total} · ${state}`,
+    autoStates: { running: 'A abrir', complete: 'Concluído', stopped: 'Parado', failed: 'Parado: não foi possível confirmar o próximo lote' },
+    autoSetup: 'Deixa os resultados abertos. Introduz um múltiplo da quantidade indicada em «Open … more».',
+    autoConfirm: (count, cost) => `Abrir mais ${count} caixas por até ${cost} moedas?`,
     language: 'Idioma',
     cases: 'Abrir caixas no STRIDE ↗',
     box: 'Caixa',
