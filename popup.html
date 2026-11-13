@@ -7,24 +7,37 @@
 <main>
   <header class="brand">
     <img src="icons/logo.svg" width="32" height="32" alt="">
-    <h1>STRIDE Inventory Helper</h1>
+    <h1>STRIDE <span>Inventory Helper</span></h1>
   </header>
-  <label><span data-text="language">Language</span>
-    <select id="language" disabled>
-      <option value="en" lang="en">English</option>
-      <option value="pt-PT" lang="pt-PT">Português (Portugal)</option>
-    </select>
-  </label>
-  <a data-text="cases" href="https://stridecsgo.net/cases" target="_blank" rel="noopener noreferrer">Open cases on STRIDE ↗</a>
-  <section aria-labelledby="auto-title">
+  <nav class="tabs">
+    <button type="button" data-panel="cases-panel" data-text="casesTab" aria-controls="cases-panel" aria-pressed="true">Cases</button>
+    <button type="button" data-panel="history-panel" data-text="history" aria-controls="history-panel" aria-pressed="false">History</button>
+    <button type="button" data-panel="settings-panel" data-text="settingsTab" aria-controls="settings-panel" aria-pressed="false">Settings</button>
+  </nav>
+  <section id="cases-panel">
+    <div class="card">
+    <header class="section-heading">
     <h2 id="auto-title" data-text="autoTitle">Auto Case Open</h2>
+    <a data-text="casesTab" href="https://stridecsgo.net/cases" target="_blank" rel="noopener noreferrer">Cases</a>
+    </header>
     <form id="auto-open">
       <label class="wide"><span data-text="autoCount">Additional cases</span><input name="quantity" type="number" min="1" max="1000000" required></label>
       <button type="submit" data-text="autoStart">Start</button>
       <button id="auto-stop" type="button" data-text="autoStop">Stop</button>
     </form>
     <p id="auto-status" role="status"></p>
+    </div>
   </section>
+  <section id="history-panel" hidden>
+  <div class="card">
+    <h2 id="history-title" data-text="history">History</h2>
+    <label><span data-text="filter">Filter by case</span><input id="filter" type="search"></label>
+    <p id="totals"></p>
+    <ul id="history"></ul>
+    <button id="export" type="button" data-text="export" disabled>Export CSV</button>
+  </div>
+  <details class="card">
+  <summary data-text="manualTitle">Record a batch</summary>
   <form id="record">
     <button id="import-result" class="wide" type="button" data-text="importResult" disabled>Fill from STRIDE results</button>
     <label class="wide"><span data-text="box">Case</span><input name="box" required maxlength="140"></label>
@@ -33,14 +46,20 @@
     <label class="wide"><span data-text="value">Total drop value</span><input name="value" type="number" min="0" max="1000000000000" required></label>
     <button class="wide" type="submit" data-text="submit" disabled>Record opening</button>
   </form>
-  <section aria-labelledby="history-title">
-    <h2 id="history-title" data-text="history">History</h2>
-    <label><span data-text="filter">Filter by case</span><input id="filter" type="search"></label>
-    <p id="totals"></p>
-    <button id="export" type="button" data-text="export" disabled>Export CSV</button>
-    <ul id="history"></ul>
+    <p id="status" role="status"></p>
+  </details>
   </section>
-  <p id="status" role="status"></p>
+  <section id="settings-panel" hidden>
+    <div class="card">
+      <label><span data-text="language">Language</span>
+        <select id="language" disabled>
+          <option value="en" lang="en">English</option>
+          <option value="pt-PT" lang="pt-PT">Português (Portugal)</option>
+        </select>
+      </label>
+      <p id="language-status" role="status"></p>
+    </div>
+  </section>
 </main>
 <script src="translations.js" defer></script>
 <script src="auto-open.js" defer></script>

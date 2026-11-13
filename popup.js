@@ -8,6 +8,17 @@ const totals = document.querySelector('#totals');
 const exportButton = document.querySelector('#export');
 const status = document.querySelector('#status');
 const languageSelect = document.querySelector('#language');
+const languageStatus = document.querySelector('#language-status');
+const tabs = [...document.querySelectorAll('[data-panel]')];
+for (const tab of tabs) {
+  tab.addEventListener('click', () => {
+    for (const candidate of tabs) {
+      const selected = candidate === tab;
+      candidate.setAttribute('aria-pressed', String(selected));
+      document.getElementById(candidate.dataset.panel).hidden = !selected;
+    }
+  });
+}
 let language = 'en';
 let messages = translations.en;
 let number;
@@ -218,10 +229,10 @@ languageSelect.addEventListener('change', async () => {
   languageSelect.disabled = true;
   try {
     await extension.storage.local.set({ language });
-    if (statusKey === 'languageError') setStatus();
+    languageStatus.textContent = '';
   } catch {
     applyLanguage(previousLanguage);
-    setStatus('languageError');
+    languageStatus.textContent = messages.languageError;
   } finally {
     languageSelect.disabled = false;
   }

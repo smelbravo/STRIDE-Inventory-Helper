@@ -1,5 +1,8 @@
 const translations = {
   en: {
+    casesTab: 'Cases',
+    settingsTab: 'Settings',
+    manualTitle: 'Record a batch',
     autoTitle: 'Auto Case Open',
     autoCount: 'Additional cases',
     autoStart: 'Start',
@@ -36,6 +39,9 @@ const translations = {
     csvFilename: 'stride-openings.csv'
   },
   'pt-PT': {
+    casesTab: 'Caixas',
+    settingsTab: 'Definições',
+    manualTitle: 'Registar um lote',
     autoTitle: 'Abertura automática de caixas',
     autoCount: 'Caixas adicionais',
     autoStart: 'Iniciar',
