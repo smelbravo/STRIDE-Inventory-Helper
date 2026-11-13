@@ -36,6 +36,27 @@ const picker = document.querySelector('#case-picker');
 const caseSearch = document.querySelector('#case-search');
 const catalogStatus = document.querySelector('#catalog-status');
 let catalog = [];
+const catalogVersion = 2;
+
+function readCaseCatalog() {
+  const category = /^(?:weapon cases|souvenir packages|collections|agents|sticker capsules|patch packs|pins|music kits|graffiti)$/i;
+  const footer = /^(?:open\b|[\d,.\s]+$|[^\p{L}\d]+\s*\d)/iu;
+  const clean = value => (value ?? '').trim().replace(/\s+/g, ' ');
+  const isName = value => value && !category.test(value) && !footer.test(value) && value !== '★';
+
+  return [...document.querySelectorAll('a[href]')].flatMap(anchor => {
+    const url = new URL(anchor.href);
+    if (url.origin !== location.origin || !/^\/cases\/[^/]+\/?$/.test(url.pathname)) return [];
+
+    const lines = anchor.innerText.split('\n').map(clean).filter(Boolean);
+    const categoryIndex = lines.findIndex(line => category.test(line));
+    const cardName = categoryIndex < 0 ? '' : lines[categoryIndex + 1];
+    const headings = [...anchor.querySelectorAll('h2,h3,h4')].map(heading => clean(heading.innerText));
+    const imageName = clean(anchor.querySelector('img[alt]')?.alt);
+    const name = [cardName, ...headings, imageName, ...lines].find(isName);
+    return name ? [{ name, url: url.origin + url.pathname }] : [];
+  });
+}
 
 function renderCatalog() {
   const selected = picker.value;
@@ -80,13 +101,7 @@ document.querySelector('#load-catalog').addEventListener('click', async event =>
     for (let attempt = 0; attempt < 16 && !entries.length; attempt++) {
       const [{ result }] = await extension.scripting.executeScript({
         target: { tabId: tab.id },
-        func: () => [...document.querySelectorAll('a[href]')].flatMap(anchor => {
-          const url = new URL(anchor.href);
-          if (url.origin !== location.origin || !/^\/cases\/[^/]+\/?$/.test(url.pathname)) return [];
-          const name = anchor.querySelector('h2,h3,h4')?.innerText.trim() ||
-            anchor.querySelector('img[alt]')?.alt.trim() || anchor.innerText.trim().split('\n')[0];
-          return name ? [{ name, url: url.origin + url.pathname }] : [];
-        })
+        func: readCaseCatalog
       });
       entries = result;
       if (!entries.length) await new Promise(resolve => setTimeout(resolve, 250));
@@ -96,7 +111,7 @@ document.querySelector('#load-catalog').addEventListener('click', async event =>
       return;
     }
     catalog = [...new Map(entries.map(entry => [entry.url, entry])).values()].sort((a, b) => a.name.localeCompare(b.name));
-    await extension.storage.local.set({ catalog });
+    await extension.storage.local.set({ catalog, catalogVersion });
     renderCatalog();
   } catch {
     catalogStatus.textContent = messages.catalogError;
@@ -330,8 +345,8 @@ languageSelect.addEventListener('change', async () => {
 async function initialize() {
   const defaultLanguage = /^pt(?:-|$)/i.test(navigator.language) ? 'pt-PT' : 'en';
   try {
-    const stored = await extension.storage.local.get(['language', 'catalog']);
-    catalog = stored.catalog ?? [];
+    const stored = await extension.storage.local.get(['language', 'catalog', 'catalogVersion']);
+    catalog = stored.catalogVersion === catalogVersion ? (stored.catalog ?? []) : [];
     await refreshRecords();
     applyLanguage(stored.language ?? defaultLanguage);
     save.disabled = false;
